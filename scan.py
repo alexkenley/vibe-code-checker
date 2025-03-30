@@ -210,6 +210,7 @@ def run_tools(project_path, language):
     """Runs the appropriate static analysis tools based on the detected language."""
     print(f"Proceeding with scan for: {language}\n")
     results = {}
+    results["project_path"] = project_path
     tools_found = False
     original_cwd = os.getcwd()
     os.chdir(project_path) # Change to project directory for tool execution
@@ -265,6 +266,7 @@ def run_tools(project_path, language):
             logger.info(f"Found {len(js_ts_files)} JavaScript/TypeScript files to scan")
             # Use our new run_eslint function
             results["eslint"] = run_eslint(project_path, js_ts_files)
+            results["eslint"]["project_path"] = project_path
             # ESLint returns 1 when it finds linting issues, which is expected and should be treated as success
             if results["eslint"]["returncode"] not in [0, 1]:
                 logger.error(f"ESLint execution failed (Exit Code: {results['eslint']['returncode']}).")
@@ -275,7 +277,7 @@ def run_tools(project_path, language):
             tools_found = True
         else:
             logger.warning("No JavaScript/TypeScript files found to scan")
-            results["eslint"] = {"error": "No JavaScript/TypeScript files found to scan"}
+            results["eslint"] = {"error": "No JavaScript/TypeScript files found to scan", "stdout": None, "stderr": None, "returncode": 0, "project_path": project_path}
         
         spinner.stop("ESLint finished.")
 
@@ -291,12 +293,13 @@ def run_tools(project_path, language):
             logger.error("This tool is required for JavaScript/TypeScript security scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("#"*80 + "\n")
-            results["retirejs"] = {"error": "Tool 'retire' not found.", "stdout": None, "stderr": None, "returncode": -1}
+            results["retirejs"] = {"error": "Tool 'retire' not found.", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             try:
                 # RetireJS: 0 = no vulnerabilities, 13 = vulnerabilities found
                 results["retirejs"] = run_retirejs(project_path)
+                results["retirejs"]["project_path"] = project_path
                 # RetireJS returns 13 when it finds vulnerabilities, which is expected and should be treated as success
                 if results["retirejs"]["returncode"] not in [0, 13]:
                     logger.error(f"RetireJS execution failed (Exit Code: {results['retirejs']['returncode']}).")
@@ -310,7 +313,7 @@ def run_tools(project_path, language):
                 logger.error("This could be due to a PATH environment issue when running from Python.")
                 logger.error("Try running the scanner from a command prompt where 'retire --version' works.")
                 logger.error("#"*80 + "\n")
-                results["retirejs"] = {"error": f"Failed to run retire: {str(e)}", "stdout": None, "stderr": None, "returncode": -1}
+                results["retirejs"] = {"error": f"Failed to run retire: {str(e)}", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         spinner.stop("RetireJS finished.")
 
         print_section("TypeScript Compiler")
@@ -318,6 +321,11 @@ def run_tools(project_path, language):
         # Run TypeScript compiler in noEmit mode to check for errors
         print(f"\n--- Running TypeScript Compiler ---")
         results["typescript"] = run_typescript_check(project_path)
+        # Ensure typescript results is a dictionary before adding project_path
+        if isinstance(results["typescript"], list):
+            typescript_results = {"issues": results["typescript"], "success": True, "stdout": "", "stderr": "", "returncode": 0}
+            results["typescript"] = typescript_results
+        results["typescript"]["project_path"] = project_path
         spinner.stop("TypeScript Compiler finished.")
 
     # --- Python Tools ---
@@ -332,13 +340,14 @@ def run_tools(project_path, language):
             logger.error("This tool is required for Python code scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["flake8"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["flake8"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             # Flake8 usually exits 1 if issues found, 0 if none. Both are "success" in terms of execution.
             # Run without specific format first to check basic execution
             cmd = ["flake8", "."]
             results["flake8"] = _run_command_and_capture(cmd, cwd=project_path)
+            results["flake8"]["project_path"] = project_path
             if results["flake8"]["returncode"] not in [0, 1]:
                  logger.error(f"Flake8 execution error (Exit Code: {results['flake8']['returncode']}).")
                  if results["flake8"]["stderr"]: logger.error(f"Stderr:\n{results['flake8']['stderr']}")
@@ -354,12 +363,13 @@ def run_tools(project_path, language):
             logger.error("This tool is required for Python code scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["bandit"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["bandit"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             # Bandit exits 0 for success (even with issues), non-zero for errors.
             cmd = ["bandit", "-r", ".", "-f", "json"]
             results["bandit"] = _run_command_and_capture(cmd, cwd=project_path)
+            results["bandit"]["project_path"] = project_path
             if results["bandit"]["returncode"] != 0:
                  logger.error(f"Bandit execution error (Exit Code: {results['bandit']['returncode']}).")
                  if results["bandit"]["stderr"]: logger.error(f"Stderr:\n{results['bandit']['stderr']}")
@@ -377,13 +387,14 @@ def run_tools(project_path, language):
             logger.error("This tool is required for Go code scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["golangci-lint"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["golangci-lint"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             # golangci-lint: 0 = success no issues, 1 = success issues found, >1 = error
             cmd = ["golangci-lint", "run", "./...", "--out-format", "json", "--issues-exit-code", "1"]
             # We set --issues-exit-code to 1 so both 0 and 1 mean successful execution
             results["golangci-lint"] = _run_command_and_capture(cmd, cwd=project_path)
+            results["golangci-lint"]["project_path"] = project_path
             if results["golangci-lint"]["returncode"] not in [0, 1]:
                  logger.error(f"golangci-lint execution error (Exit Code: {results['golangci-lint']['returncode']}).")
                  if results["golangci-lint"]["stderr"]: logger.error(f"Stderr:\n{results['golangci-lint']['stderr']}")
@@ -399,14 +410,14 @@ def run_tools(project_path, language):
             logger.error("This tool is required for Go code scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["gosec"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["gosec"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             # gosec: 0 = No warnings, 3 = Warnings found, 4 = Error, other non-zero = Error
             # We treat 0 and 3 as successful execution
             cmd = ["gosec", "-fmt=json", "./..."]
             results["gosec"] = _run_command_and_capture(cmd, cwd=project_path)
-            # Gosec might print to stderr even on success (e.g., progress), check return code first
+            results["gosec"]["project_path"] = project_path
             if results["gosec"]["returncode"] not in [0, 3]:
                 logger.error(f"gosec execution issues (Exit Code: {results['gosec']['returncode']}).")
                 if results["gosec"]["stderr"]: logger.error(f"Stderr:\n{results['gosec']['stderr']}")
@@ -424,12 +435,13 @@ def run_tools(project_path, language):
             logger.error("This tool is required for Ruby code scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["rubocop"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["rubocop"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
             # rubocop: 0 = no offenses, 1 = offenses found, >1 = error
             cmd = ["rubocop", ".", "--format", "json"]
             results["rubocop"] = _run_command_and_capture(cmd, cwd=project_path)
+            results["rubocop"]["project_path"] = project_path
             if results["rubocop"]["returncode"] not in [0, 1]:
                  logger.error(f"RuboCop execution error (Exit Code: {results['rubocop']['returncode']}).")
                  if results["rubocop"]["stderr"]: logger.error(f"Stderr:\n{results['rubocop']['stderr']}")
@@ -442,19 +454,29 @@ def run_tools(project_path, language):
             logger.error("\n" + "="*80)
             logger.error("ERROR: Required tool 'brakeman' not found.")
             logger.error("To install: gem install brakeman")
-            logger.error("This tool is required for Ruby code scanning.")
+            logger.error("This tool is required for Ruby on Rails security scanning.")
             logger.error("\nPlease see README.md for more information on setting up prerequisites.")
             logger.error("="*80 + "\n")
-            results["brakeman"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1}
+            results["brakeman"] = {"error": "Tool not found", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         else:
             tools_found = True
-            # brakeman: 0 = No warnings, 3 = Warnings found, 4 = Error, other non-zero = Error
-            # We treat 0 and 3 as successful execution
-            cmd = ["brakeman", "-f", "json", "-q"] # -q for quiet
-            results["brakeman"] = _run_command_and_capture(cmd, cwd=project_path)
-            if results["brakeman"]["returncode"] not in [0, 3]:
-                 logger.error(f"Brakeman execution error (Exit Code: {results['brakeman']['returncode']}).")
-                 if results["brakeman"]["stderr"]: logger.error(f"Stderr:\n{results['brakeman']['stderr']}")
+            # Check if this is a Rails application by looking for common Rails files
+            is_rails_app = any(os.path.exists(os.path.join(project_path, f)) for f in ['config/routes.rb', 'app/controllers', 'config/application.rb'])
+            
+            if not is_rails_app:
+                logger.info("This does not appear to be a Rails application. Brakeman is designed for Rails apps only.")
+                print("This does not appear to be a Rails application. Brakeman is designed for Rails apps only.")
+                print("For security scanning of non-Rails Ruby applications, consider using other tools like Rubocop with security plugins.")
+                results["brakeman"] = {"stdout": "", "stderr": "", "returncode": 0, "project_path": project_path, "skipped": True}
+            else:
+                # brakeman: 0 = No warnings, 3 = Warnings found, 4 = Error, other non-zero = Error
+                # We treat 0 and 3 as successful execution
+                cmd = ["brakeman", "-f", "json", "-q"] # -q for quiet
+                results["brakeman"] = _run_command_and_capture(cmd, cwd=project_path)
+                results["brakeman"]["project_path"] = project_path
+                if results["brakeman"]["returncode"] not in [0, 3]:
+                     logger.error(f"Brakeman execution error (Exit Code: {results['brakeman']['returncode']}).")
+                     if results["brakeman"]["stderr"]: logger.error(f"Stderr:\n{results['brakeman']['stderr']}")
         spinner.stop("Brakeman finished.")
 
     # --- Cleanup --- #
@@ -889,31 +911,46 @@ def parse_typescript_check_output(output):
 
     return issues
 
+def parse_dawnscanner_json_output(output):
+    """Parse Dawnscanner JSON output."""
+    return []
+
 def generate_report(results, output_dir=None):
     """
     Generates a comprehensive Markdown report from the scan results.
     Also creates a JSON file with structured data for AI-assisted remediation.
-    Prompts for output directory if not provided.
+    If no output directory is provided, creates a 'reports' directory in the project path.
     """
     print_section("Generating Report")
     spinner.start("Processing scan results...")
     
-    # If no output directory specified, prompt for it
+    # If no output directory specified, create a default 'reports' directory
     if not output_dir:
-        output_dir = input("\nEnter the directory path where you want to save the reports: ").strip()
+        # Get the project path from the first result that has it
+        project_path = None
+        for tool, result in results.items():
+            if isinstance(result, dict) and "project_path" in result:
+                project_path = result["project_path"]
+                break
+        
+        # If we couldn't find a project path, use the current directory
+        if not project_path:
+            project_path = os.getcwd()
+            
+        # Create a 'reports' directory in the project path
+        output_dir = os.path.join(project_path, "reports")
+        logger.info(f"No output directory specified. Using default: {output_dir}")
+        print(f"\nNo output directory specified. Using default: {output_dir}")
     
-    # Check if directory exists
+    # Create the output directory if it doesn't exist
     if not os.path.exists(output_dir):
-        create = input(f"\nDirectory '{output_dir}' does not exist. Would you like to create it? (y/n): ").lower().strip()
-        if create == 'y':
-            try:
-                os.makedirs(output_dir)
-                print(f"Created directory: {output_dir}")
-            except Exception as e:
-                logger.error(f"Error creating directory: {e}")
-                return False
-        else:
-            print("Report generation cancelled - no valid output directory")
+        try:
+            os.makedirs(output_dir)
+            logger.info(f"Created output directory: {output_dir}")
+            print(f"Created output directory: {output_dir}")
+        except Exception as e:
+            logger.error(f"Error creating output directory: {e}")
+            spinner.stop(f"Error creating output directory: {e}")
             return False
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1128,7 +1165,7 @@ def generate_report(results, output_dir=None):
     
     # Sort issues by file and line number
     spinner.start("Sorting and organizing issues...")
-    all_issues.sort(key=lambda x: (x.get("file", ""), x.get("line", 0)))
+    all_issues.sort(key=lambda x: (x.get("file", ""), x.get("line", 0) if x.get("line") is not None else 0))
     
     # Add issues to AI-friendly data
     ai_friendly_data["issues"] = all_issues
@@ -1174,7 +1211,7 @@ def generate_report(results, output_dir=None):
             report_md += f"#### {file_path}\n\n"
             
             # Sort issues by line number
-            issues.sort(key=lambda x: x.get('line', 0))
+            issues.sort(key=lambda x: x.get('line', 0) if x.get('line') is not None else 0)
             
             for issue in issues:
                 severity = issue.get('severity', 'info')
@@ -1271,7 +1308,7 @@ def run_eslint(project_path, files_to_scan):
         if not eslint_path:
             logger.error("ESLint requires 'eslint' which was not found in PATH.")
             logger.error("Please ensure ESLint is installed and in your PATH.")
-            return {"error": "eslint not found in PATH", "stdout": None, "stderr": None, "returncode": -1}
+            return {"error": "eslint not found in PATH", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         
         # Check for TypeScript files
         ts_files_exist = any(f.endswith(('.ts', '.tsx')) for f in files_to_scan)
@@ -1385,7 +1422,7 @@ def run_eslint(project_path, files_to_scan):
         
         if not all_files:
             logger.warning("No JavaScript or TypeScript files found to scan")
-            return {"error": "No JavaScript or TypeScript files found to scan", "stdout": None, "stderr": None, "returncode": 0}
+            return {"error": "No JavaScript or TypeScript files found to scan", "stdout": None, "stderr": None, "returncode": 0, "project_path": project_path}
         
         # Try multiple ESLint command variants to handle different versions and configurations
         eslint_commands = []
@@ -1430,7 +1467,7 @@ def run_eslint(project_path, files_to_scan):
         return result
     except Exception as e:
         logger.error(f"Error running ESLint: {e}")
-        return {"error": f"Error running ESLint: {e}", "stdout": None, "stderr": str(e), "returncode": -1}
+        return {"error": f"Error running ESLint: {e}", "stdout": None, "stderr": str(e), "returncode": -1, "project_path": project_path}
 
 def is_valid_json(text):
     """Check if a string is valid JSON."""
@@ -1448,7 +1485,7 @@ def run_retirejs(project_path):
         if not retirejs_path:
             logger.error("RetireJS requires 'retire' which was not found in PATH.")
             logger.error("Please ensure RetireJS is installed and in your PATH.")
-            return {"error": "retire not found in PATH", "stdout": None, "stderr": None, "returncode": -1}
+            return {"error": "retire not found in PATH", "stdout": None, "stderr": None, "returncode": -1, "project_path": project_path}
         
         # Get RetireJS version to determine command format
         version_cmd = ["retire", "--version"]
@@ -1497,7 +1534,7 @@ def run_retirejs(project_path):
         return result
     except Exception as e:
         logger.error(f"Error running RetireJS: {e}")
-        return {"error": f"Error running RetireJS: {e}", "stdout": None, "stderr": str(e), "returncode": -1}
+        return {"error": f"Error running RetireJS: {e}", "stdout": None, "stderr": str(e), "returncode": -1, "project_path": project_path}
 
 def run_typescript_check(project_path):
     """Run TypeScript compiler in noEmit mode to check for errors."""
@@ -1546,7 +1583,7 @@ def run_typescript_check(project_path):
             
             if not ts_files:
                 logger.warning("No TypeScript files found to check")
-                return {"warning": "No TypeScript files found to check"}
+                return {"warning": "No TypeScript files found to check", "project_path": project_path}
                 
             # Convert to relative paths
             ts_files = [os.path.relpath(f, project_path) for f in ts_files]
@@ -1606,11 +1643,11 @@ def run_typescript_check(project_path):
                 
         except subprocess.TimeoutExpired:
             logger.error("TypeScript compiler process timed out after 60 seconds")
-            return {"error": "TypeScript compiler process timed out after 60 seconds"}
+            return {"error": "TypeScript compiler process timed out after 60 seconds", "project_path": project_path}
             
     except Exception as e:
         logger.error(f"Error running TypeScript compiler: {e}")
-        return {"error": f"Error running TypeScript compiler: {e}"}
+        return {"error": f"Error running TypeScript compiler: {e}", "project_path": project_path}
 
 def main(project_path, language_arg, output_dir=None):
     """
@@ -1652,7 +1689,7 @@ def main(project_path, language_arg, output_dir=None):
         spinner.stop("Error: No tools were attempted")
         sys.exit(1)
     # Further check if all attempted tools failed or were not found
-    elif all(isinstance(r, dict) and r.get("error") for r in analysis_results.values()):
+    elif all(isinstance(r, dict) and r.get("error") for r in analysis_results.values() if isinstance(r, dict) and r != analysis_results.get("project_path")):
          logger.warning("\n" + "#"*80)
          logger.warning("WARNING: All attempted analysis tools failed or were not found.")
          logger.warning("Please check tool installations and console output above.")
@@ -1668,7 +1705,7 @@ def main(project_path, language_arg, output_dir=None):
     spinner.stop("Report generation complete")
 
     print("\nScan finished.")
-    print("Report generated: " + os.path.abspath(os.path.join(output_dir, REPORT_FILENAME)))
+    print("Report generated: " + os.path.abspath(os.path.join(output_dir or os.path.join(project_path, "reports"), REPORT_FILENAME)))
     print(f"Log file with detailed messages: {os.path.abspath(LOG_FILENAME)}")
     print("\nIf tools were missing, please see README.md for installation instructions.")
 
@@ -1680,11 +1717,12 @@ if __name__ == "__main__":
 Examples:
   %(prog)s /path/to/project -l python    # Scan Python project
   %(prog)s /path/to/project -l typescript # Scan TypeScript project
+  %(prog)s /path/to/project -o /path/to/reports # Specify output directory
 """
     )
     parser.add_argument("project_path", help="Path to the project directory to scan")
     parser.add_argument("-l", "--language", help="Specify language to scan (python, javascript, typescript, go, ruby)")
-    parser.add_argument("-o", "--output", help="Specify output directory for reports (optional, will prompt if not provided)")
+    parser.add_argument("-o", "--output", help="Specify output directory for reports (optional, defaults to 'reports' folder in project directory)")
     args = parser.parse_args()
 
     # Print a welcome banner
@@ -1695,18 +1733,24 @@ Examples:
     print("=" * 80 + "\n")
 
     try:
-        # Create output directory if it doesn't exist
+        # Create output directory if specified and it doesn't exist
         if args.output:
             os.makedirs(args.output, exist_ok=True)
+            logger.info(f"Using specified output directory: {args.output}")
         
         main(args.project_path, args.language, args.output)
 
+        # Determine the actual output directory used
+        output_dir = args.output
+        if not output_dir:
+            output_dir = os.path.join(args.project_path, "reports")
+        
         # Print a completion banner
         print("\n" + "=" * 80)
         print(" Scan Complete ".center(80, "="))
         print("=" * 80)
-        print(f" Report saved to: {os.path.abspath(os.path.join(args.output, REPORT_FILENAME))} ".center(80))
-        print(f" JSON data saved to: {os.path.abspath(os.path.join(args.output, JSON_REPORT_FILENAME))} ".center(80))
+        print(f" Report saved to: {os.path.abspath(os.path.join(output_dir, REPORT_FILENAME))} ".center(80))
+        print(f" JSON data saved to: {os.path.abspath(os.path.join(output_dir, JSON_REPORT_FILENAME))} ".center(80))
         print(f" Log file saved to: {os.path.abspath(LOG_FILENAME)} ".center(80))
         print("=" * 80)
         print(" Use these files with AI assistants like Windsurf for remediation ".center(80))

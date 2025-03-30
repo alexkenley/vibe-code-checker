@@ -1,0 +1,67 @@
+<div class="container">
+  <!-- XSS vulnerability - html_safe -->
+  <h1><%= @welcome_message %></h1>
+  
+  <div class="row">
+    <div class="col-md-6">
+      <h2>Latest Users</h2>
+      <ul class="user-list">
+        <% @users&.each do |user| %>
+          <!-- XSS vulnerability - raw output -->
+          <li><%= raw user.name %> - <%= user.email %></li>
+        <% end %>
+      </ul>
+    </div>
+    
+    <div class="col-md-6">
+      <h2>System Status</h2>
+      
+      <!-- Command injection vulnerability -->
+      <form action="/system_status" method="get">
+        <div class="form-group">
+          <label for="host">Check host status:</label>
+          <input type="text" name="host" id="host" class="form-control" placeholder="Enter hostname">
+        </div>
+        <button type="submit" class="btn btn-primary">Check</button>
+      </form>
+      
+      <!-- Insecure file upload -->
+      <h2>Upload File</h2>
+      <!-- CSRF vulnerability - no authenticity token -->
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="file">Select file:</label>
+          <input type="file" name="file" id="file" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-success">Upload</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Insecure JavaScript with XSS vulnerability -->
+  <script>
+    // XSS vulnerability - unescaped parameter
+    var message = "<%= params[:message] %>";
+    document.getElementById("message-container").innerHTML = message;
+    
+    // Insecure configuration exposure
+    var config = <%= @config.to_json.html_safe %>;
+    console.log("Config loaded:", config);
+    
+    // Weak cryptography
+    function hashPassword(password) {
+      // Insecure hashing algorithm
+      var hash = 0;
+      for (var i = 0; i < password.length; i++) {
+        hash = ((hash << 5) - hash) + password.charCodeAt(i);
+        hash = hash & hash;
+      }
+      return hash;
+    }
+  </script>
+  
+  <div id="message-container"></div>
+  
+  <!-- Open redirect vulnerability -->
+  <a href="/redirect?url=<%= params[:redirect_url] %>">Click here to continue</a>
+</div>

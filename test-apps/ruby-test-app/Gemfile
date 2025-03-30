@@ -1,0 +1,48 @@
+source 'https://rubygems.org'
+
+# Intentionally vulnerable dependencies
+gem 'rails', '5.2.3' # Outdated with security vulnerabilities
+gem 'puma', '3.12.1' # Outdated with security vulnerabilities
+gem 'nokogiri', '1.10.3' # Outdated with security vulnerabilities
+gem 'rack', '2.0.7' # Outdated with security vulnerabilities
+gem 'loofah', '2.2.3' # Outdated with security vulnerabilities
+gem 'actionpack', '5.2.3' # Outdated with security vulnerabilities
+gem 'activestorage', '5.2.3' # Outdated with security vulnerabilities
+gem 'actionview', '5.2.3' # Outdated with security vulnerabilities
+
+# Database
+gem 'sqlite3', '1.3.13' # Outdated with security vulnerabilities
+gem 'pg', '1.1.4' # Outdated version
+
+# Assets
+gem 'sass-rails', '5.0.7' # Outdated with security vulnerabilities
+gem 'uglifier', '4.1.20'
+gem 'coffee-rails', '4.2.2'
+gem 'turbolinks', '5.2.0'
+
+# API and parsing
+gem 'jbuilder', '2.9.1'
+gem 'json', '2.2.0' # Outdated with security vulnerabilities
+
+# Authentication and authorization (vulnerable versions)
+gem 'devise', '4.6.2' # Outdated with security vulnerabilities
+gem 'cancancan', '3.0.1'
+
+# XML parsing (vulnerable versions)
+gem 'rexml', '3.2.3' # Outdated with security vulnerabilities
+
+# Additional utilities
+gem 'digest'
+gem 'bcrypt', '3.1.12' # Outdated with security vulnerabilities
+
+# Development and testing
+group :development, :test do
+  gem 'byebug'
+  gem 'rspec-rails', '3.8.2'
+end
+
+group :development do
+  gem 'web-console', '3.7.0'
+  gem 'listen', '3.1.5'
+  gem 'spring', '2.0.2' # Outdated with security vulnerabilities
+end

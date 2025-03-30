@@ -1,0 +1,28 @@
+# Database configuration with security vulnerabilities
+
+default: &default
+  adapter: sqlite3
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  timeout: 5000
+
+development:
+  <<: *default
+  database: db/development.sqlite3
+  username: root  # Insecure default username (security issue)
+  password: ""    # Empty password (security issue)
+
+test:
+  <<: *default
+  database: db/test.sqlite3
+
+production:
+  adapter: postgresql
+  encoding: unicode
+  database: ruby_test_app_production
+  host: localhost
+  port: 5432
+  username: postgres  # Hardcoded username (security issue)
+  password: password123  # Hardcoded password (security issue)
+  pool: 5
+  timeout: 5000
+  sslmode: disable  # SSL disabled (security issue)

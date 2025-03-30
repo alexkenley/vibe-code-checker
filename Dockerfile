@@ -44,29 +44,34 @@ RUN apt-get update && apt-get install -y ruby-full \
 # Install Python tools
 RUN pip3 install flake8 bandit
 
-# Install Go tools
-RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
-    && go install github.com/securego/gosec/v2/cmd/gosec@latest
-ENV PATH="/usr/local/go/bin:${PATH}"
-
-# Create a non-root user to run the scanner
+# Create a non-root user
 RUN useradd -m scanner
 RUN chown -R scanner:scanner /home/scanner
-
-# Create mount points with proper permissions
 RUN mkdir -p /code /reports \
     && chown -R scanner:scanner /code /reports
+
+# Install Go tools and make them available to scanner user
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install github.com/securego/gosec/v2/cmd/gosec@latest \
+    && cp -r /root/go /home/scanner/ \
+    && chown -R scanner:scanner /home/scanner/go
+
+# Set environment variables for scanner user
+ENV PATH="/home/scanner/go/bin:/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/scanner/go"
 
 # Copy scanner script
 COPY scan.py /home/scanner/scan.py
 RUN chown scanner:scanner /home/scanner/scan.py
 
+# Set working directory
+WORKDIR /home/scanner
+
 # Switch to scanner user
 USER scanner
-WORKDIR /home/scanner
+
+# Define entrypoint
+ENTRYPOINT ["python3", "/home/scanner/scan.py"]
 
 # Set default mount points
 VOLUME ["/code", "/reports"]
-
-# Set the entrypoint to run the scanner
-ENTRYPOINT ["python3", "scan.py"]

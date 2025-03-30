@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Application</title>
+    <!-- Intentionally using older versions with known vulnerabilities -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+<body>
+    <h1>Test Application</h1>
+    
+    <div class="container">
+        <h2>User Input Form</h2>
+        <form id="userForm">
+            <div>
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username">
+            </div>
+            <div>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password">
+            </div>
+            <div>
+                <label for="userInput">Custom Input:</label>
+                <input type="text" id="userInput" name="userInput">
+            </div>
+            <button type="button" id="button">Submit</button>
+        </form>
+        
+        <div id="output"></div>
+    </div>
+    
+    <!-- Inline script with issues -->
+    <script>
+        // Inline JavaScript with issues
+        $(document).ready(function() {
+            // DOM-based XSS vulnerability
+            $("#button").click(function() {
+                var userInput = $("#userInput").val();
+                $("#output").html(userInput); // XSS vulnerability
+                
+                // Insecure authentication
+                var username = $("#username").val();
+                var password = $("#password").val();
+                
+                if(username == "admin" && password == "password") {
+                    alert("Logged in!");
+                }
+            });
+            
+            // Prototype pollution vulnerability
+            function merge(target, source) {
+                for (var key in source) {
+                    target[key] = source[key];
+                }
+                return target;
+            }
+            
+            // Insecure data storage
+            function saveCredentials() {
+                localStorage.setItem("username", $("#username").val());
+                localStorage.setItem("password", $("#password").val()); // Storing password in localStorage
+            }
+        });
+    </script>
+    
+    <!-- Local scripts with issues -->
+    <script src="index.js"></script>
+    <script src="utils.js"></script>
+    <script src="api.js"></script>
+</body>
+</html>

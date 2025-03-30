@@ -1,0 +1,34 @@
+<h1>User Profile</h1>
+
+<div class="user-profile">
+  <!-- XSS vulnerability - raw output without escaping -->
+  <h2><%= raw @user.name %></h2>
+  
+  <!-- Another XSS vulnerability - html_safe -->
+  <div class="bio"><%= @user.bio.html_safe %></div>
+  
+  <!-- Another XSS vulnerability - direct interpolation -->
+  <script>
+    var username = "<%= @user.username %>";
+    var userId = <%= @user.id %>;
+    var userPreferences = <%= @user.preferences.to_json.html_safe %>;
+  </script>
+  
+  <div class="user-details">
+    <p>Email: <%= @user.email %></p>
+    <p>Joined: <%= @user.created_at.strftime("%B %d, %Y") %></p>
+    
+    <!-- CSRF vulnerability - no authenticity token -->
+    <form action="/users/update" method="post">
+      <input type="hidden" name="user_id" value="<%= @user.id %>">
+      <input type="text" name="email" value="<%= @user.email %>">
+      <button type="submit">Update Email</button>
+    </form>
+  </div>
+  
+  <!-- Insecure include - potential for path traversal -->
+  <%= render :file => "users/_#{@user.role}" %>
+  
+  <!-- Insecure URL generation - open redirect -->
+  <a href="<%= params[:return_url] %>">Go Back</a>
+</div>

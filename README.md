@@ -6,6 +6,59 @@ A simple script to scan a project codebase for common best practice and security
 
 This script helps developers, especially those newer to coding ("vibe coders"), ensure their code aligns with common standards before potentially using AI assistants in IDEs (like Windsurf, Cursor) for targeted fixes. It runs tools for Python, JavaScript, TypeScript, Go, and Ruby, and generates a consolidated report.
 
+## Test Applications
+
+The repository includes test applications with intentional code quality issues and security vulnerabilities in the `test-apps` directory. These applications help demonstrate the capabilities of the scanner and can be used for testing.
+
+### JavaScript Test App
+
+A simple JavaScript application with intentional issues:
+- Vulnerable dependencies
+- Code quality issues (unused variables, missing semicolons)
+- Security issues (eval usage, insecure patterns)
+
+### TypeScript Test App
+
+A TypeScript application with intentional issues:
+- Vulnerable dependencies in package.json
+- Code quality issues (unused variables, empty catch blocks)
+- Security issues (eval usage, prototype pollution, weak crypto)
+
+### Python Test App
+
+A Python application with intentional issues:
+- Vulnerable dependencies in requirements.txt
+- Code quality issues (unused imports, variables)
+- Security issues (eval usage, command injection, SQL injection)
+
+### Go Test App
+
+A Go application with intentional issues:
+- Vulnerable dependencies in go.mod
+- Code quality issues (unused variables, deprecated packages)
+- Security issues (command injection, SQL injection, weak crypto)
+
+### Ruby Test App
+
+A Ruby on Rails application with intentional issues:
+- Vulnerable gems in Gemfile
+- Code quality issues (unused variables, bare rescues)
+- Security issues (eval usage, command injection, unsafe deserialization)
+- Rails-specific vulnerabilities (CSRF, mass assignment, etc.)
+
+To run the scanner on any test app:
+
+```bash
+# From the root of the Vibe Code Scanner project
+docker run -v "$(pwd)/test-apps/js-test-app:/code" vibe-code-scanner /code
+docker run -v "$(pwd)/test-apps/typescript-test-app:/code" vibe-code-scanner /code
+docker run -v "$(pwd)/test-apps/python-test-app:/code" vibe-code-scanner /code -l python
+docker run -v "$(pwd)/test-apps/go-test-app:/code" vibe-code-scanner /code -l go
+docker run -v "$(pwd)/test-apps/ruby-test-app:/code" vibe-code-scanner /code -l ruby
+```
+
+For more details, see the [Test Applications README](./test-apps/README.md).
+
 ## Important: Basic Requirements
 
 **Python 3.x is required to run the scanner itself**, regardless of what language you're scanning. [Download Python from python.org](https://www.python.org/downloads/) if you don't have it installed.
@@ -13,7 +66,7 @@ This script helps developers, especially those newer to coding ("vibe coders"), 
 **Additional requirements by language:**
 - **JavaScript/TypeScript scanning:** Requires Node.js installed ([nodejs.org](https://nodejs.org/))
 - **Go scanning:** Requires Go installed ([go.dev](https://go.dev/doc/install))
-- **Ruby scanning:** Requires Ruby installed ([ruby-lang.org](https://www.ruby-lang.org/))
+- **Ruby scanning:** Requires Ruby and Rails installed ([ruby-lang.org](https://www.ruby-lang.org/) and [rubyonrails.org](https://rubyonrails.org/))
 
 ## Simplified Installation: Using Docker (Recommended)
 
@@ -26,9 +79,100 @@ The Docker container includes the following pre-installed tools:
 - **Python 3.x** with flake8 and bandit
 - **Node.js 18.x** with ESLint 8.56.0, TypeScript ESLint 6.21.0, and RetireJS 4.3.2
 - **Go 1.22.1** with golangci-lint and gosec
-- **Ruby** with RuboCop and Brakeman
+- **Ruby** with RuboCop and Brakeman (for Rails security scanning)
 
 This ensures all tools are compatible and properly configured, avoiding common installation and version compatibility issues.
+
+### Complete Workflow for Using Docker (Step-by-Step)
+
+#### Step 1: Install Docker Desktop
+
+1. Download Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop/)
+2. Create a free Docker account during installation if you don't have one
+3. Run the installer and follow the prompts
+   - On Windows: Select the option to use WSL 2 if prompted
+   - After installation, you may need to restart your computer
+
+#### Step 2: Start Docker Desktop
+
+1. Launch Docker Desktop from your applications/programs menu
+2. Wait for Docker to fully start (the whale icon in the taskbar will stop animating)
+3. Sign in to Docker Desktop:
+   - Click "Sign in" in the top-right corner
+   - Enter your Docker account credentials
+   - Wait for the login process to complete
+
+#### Step 3: Build the Vibe Code Scanner Docker Image
+
+1. Open a terminal/command prompt
+2. Navigate to the Vibe Code Scanner directory:
+   ```bash
+   cd path/to/vibe-code-scanner
+   ```
+3. Build the Docker image:
+   ```bash
+   docker build -t vibe-code-scanner .
+   ```
+4. Wait for the build to complete (this may take a few minutes the first time)
+
+#### Step 4: Scan Your Project
+
+1. Navigate to your project directory in the terminal:
+   ```bash
+   cd path/to/your/project
+   ```
+
+2. Run the scanner with one of these commands (replace `/path/to/your/project` with your actual project path):
+
+   **Windows (PowerShell):**
+   ```powershell
+   docker run -v "${PWD}:/code" vibe-code-scanner /code
+   ```
+
+   **Windows (Command Prompt):**
+   ```cmd
+   docker run -v "%cd%:/code" vibe-code-scanner /code
+   ```
+
+   **Mac/Linux:**
+   ```bash
+   docker run -v "$(pwd):/code" vibe-code-scanner /code
+   ```
+
+3. For specific language scanning, add the `-l` flag:
+   ```bash
+   docker run -v "$(pwd):/code" vibe-code-scanner /code -l python
+   ```
+   
+   Supported language options: `javascript`, `typescript`, `python`, `go`, `ruby`
+
+#### Step 5: View the Results
+
+1. After the scan completes, the results will be saved in a new `reports` directory in your project:
+   - `reports/vibe_scan_report.md` - Human-readable Markdown report
+   - `reports/vibe_scan_report.json` - Machine-readable JSON data
+
+2. Open the Markdown report in any Markdown viewer or text editor to see the issues found
+
+3. Use the report with AI assistants like Windsurf to help fix the identified issues
+
+#### Step 6: Fix Issues and Rescan
+
+1. Address the issues identified in the report
+2. Run the scanner again to verify your fixes:
+   ```bash
+   docker run -v "$(pwd):/code" vibe-code-scanner /code
+   ```
+3. Repeat until you've resolved all the issues you want to fix
+
+### Troubleshooting Docker
+
+If you encounter issues with Docker:
+
+1. **Docker not starting**: Ensure virtualization is enabled in your BIOS/UEFI settings
+2. **Permission errors**: On Linux, you may need to add your user to the docker group
+3. **Volume mounting issues**: Make sure you're using the correct syntax for your operating system
+4. **Docker Desktop not running**: Look for the Docker icon in your system tray and ensure it's running
 
 ### Using Docker (Windows)
 

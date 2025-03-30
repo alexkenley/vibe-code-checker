@@ -1,0 +1,6 @@
+# Intentionally vulnerable dependencies
+flask==0.12.2  # Outdated with security vulnerabilities
+django==1.11.0  # Outdated with security vulnerabilities
+requests==2.18.0  # Outdated with security vulnerabilities
+pyyaml==5.1  # Outdated with security vulnerabilities
+cryptography==2.0.0  # Outdated with security vulnerabilities

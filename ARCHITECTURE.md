@@ -41,7 +41,7 @@ Vibe Code Scanner is designed as a command-line Python script (`scan.py`) intend
         *   **Python:** Flake8, Bandit
         *   **JavaScript/TypeScript:** ESLint (via npx)
         *   **Go:** golangci-lint, gosec
-        *   **Ruby:** RuboCop, Brakeman
+        *   **Ruby:** RuboCop (for code quality), Brakeman (for Rails security scanning)
 
 5.  **Output Parsers:**
     *   Dedicated parser functions for each tool's output format.
@@ -96,7 +96,7 @@ Vibe Code Scanner is designed as a command-line Python script (`scan.py`) intend
     *   **Python:** flake8, bandit
     *   **JavaScript/TypeScript:** Node.js with npx (for ESLint)
     *   **Go:** golangci-lint, gosec
-    *   **Ruby:** rubocop, brakeman
+    *   **Ruby:** rubocop, brakeman (requires Rails application)
 
 ## Future Considerations
 

@@ -1,0 +1,45 @@
+# Insecure configuration file with hardcoded credentials
+
+# Database credentials (security issue)
+database:
+  host: localhost
+  username: admin
+  password: password123  # Hardcoded password (security issue)
+  database: ruby_test_app
+
+# API keys (security issue)
+api_keys:
+  stripe: sk_test_51ABCDEfghijklmnopqrstuvwxyz1234567890ABCDEFG  # Hardcoded API key (security issue)
+  aws: AKIAIOSFODNN7EXAMPLE  # Hardcoded AWS key (security issue)
+  aws_secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY  # Hardcoded AWS secret (security issue)
+  google_maps: AIzaSyBQG-Y_bYgxyCTWlA_hQM6_TYDhDLlUCOo  # Hardcoded API key (security issue)
+
+# Security settings (insecure configuration)
+security:
+  enable_csrf: false  # CSRF protection disabled (security issue)
+  password_min_length: 4  # Weak password policy (security issue)
+  session_timeout: 0  # No session timeout (security issue)
+  allow_weak_ciphers: true  # Weak ciphers allowed (security issue)
+  ssl_verify: false  # SSL verification disabled (security issue)
+
+# Email configuration
+email:
+  smtp_server: smtp.example.com
+  smtp_port: 25  # Insecure port (security issue)
+  smtp_user: admin@example.com
+  smtp_password: email_password  # Hardcoded password (security issue)
+  from_address: noreply@example.com
+
+# Feature flags
+features:
+  debug_mode: true  # Debug mode enabled in production (security issue)
+  admin_backdoor: true  # Backdoor enabled (security issue)
+  skip_auth_for_testing: true  # Authentication bypass (security issue)
+  allow_remote_code_execution: true  # Remote code execution allowed (security issue)
+
+# File upload settings
+uploads:
+  allowed_extensions: "*"  # No file type restrictions (security issue)
+  max_size: 100MB
+  path: "/tmp/uploads"  # Insecure path (security issue)
+  permissions: "0777"  # Insecure file permissions (security issue)
