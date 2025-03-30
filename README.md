@@ -1,10 +1,134 @@
 # Vibe Code Scanner
 
-A simple script to scan a project codebase for common best practice and security issues using various open-source static analysis tools.
+A simple tool to scan your code for security vulnerabilities and quality issues, designed for developers of all experience levels.
+
+## Quick Start Guide for Beginners
+
+This guide will walk you through the entire process of getting and using Vibe Code Scanner, even if you've never used GitHub or Docker before.
+
+### Step 1: Get the Code from GitHub
+
+1. **Download the repository**:
+   - Go to https://github.com/alexkenley/vibe-code-scanner
+   - Click the green "Code" button
+   - Select "Download ZIP"
+   - Extract the ZIP file to a location on your computer (e.g., your Documents folder)
+
+   Alternatively, if you're familiar with Git:
+   ```bash
+   git clone https://github.com/alexkenley/vibe-code-scanner.git
+   ```
+
+### Step 2: Install Docker Desktop
+
+1. **Download Docker Desktop**:
+   - Go to [docker.com](https://www.docker.com/products/docker-desktop/)
+   - Click "Download for Windows" (or Mac/Linux depending on your system)
+   - Create a free Docker account if prompted during download
+
+2. **Install Docker Desktop**:
+   - Run the installer you downloaded
+   - Follow the installation prompts
+   - On Windows: Select the option to use WSL 2 if prompted
+   - After installation completes, restart your computer if required
+
+3. **Start Docker Desktop**:
+   - Launch Docker Desktop from your applications/programs menu
+   - Wait for Docker to fully start (the whale icon in the taskbar will stop animating)
+   - Sign in to Docker Desktop:
+     - Click "Sign in" in the top-right corner
+     - Enter your Docker account credentials
+     - Wait for the login process to complete
+
+### Step 3: Build the Scanner
+
+1. **Open a terminal/command prompt**:
+   - On Windows: Press Win+R, type "cmd" and press Enter
+   - On Mac: Open Terminal from Applications > Utilities
+   - On Linux: Open your terminal application
+
+2. **Navigate to the Vibe Code Scanner directory**:
+   ```bash
+   cd path/to/vibe-code-scanner
+   ```
+   Replace "path/to/vibe-code-scanner" with the actual path where you extracted the ZIP file
+
+3. **Build the Docker image**:
+   ```bash
+   docker build -t vibe-code-scanner .
+   ```
+   (Note: Don't forget the period at the end!)
+
+4. **Wait for the build to complete**:
+   - This may take a few minutes the first time
+   - You'll see a lot of text scrolling as Docker downloads and installs all the necessary tools
+
+### Step 4: Scan Your Project
+
+1. **Navigate to your project directory** in the terminal:
+   ```bash
+   cd path/to/your/project
+   ```
+   Replace "path/to/your/project" with the path to the code you want to scan
+
+2. **Run the scanner** with one of these commands:
+
+   **Windows (PowerShell):**
+   ```powershell
+   docker run -v "${PWD}:/code" vibe-code-scanner /code
+   ```
+
+   **Windows (Command Prompt):**
+   ```cmd
+   docker run -v "%cd%:/code" vibe-code-scanner /code
+   ```
+
+   **Mac/Linux:**
+   ```bash
+   docker run -v "$(pwd):/code" vibe-code-scanner /code
+   ```
+
+3. **For specific language scanning**, add the `-l` flag:
+   ```bash
+   docker run -v "$(pwd):/code" vibe-code-scanner /code -l python
+   ```
+   
+   Supported language options: `javascript`, `typescript`, `python`, `go`, `ruby`
+
+### Step 5: View the Results
+
+1. After the scan completes, the results will be saved in a new `reports` directory in your project:
+   - `reports/vibe_scan_report.md` - Human-readable Markdown report
+   - `reports/vibe_scan_report.json` - Machine-readable JSON data
+
+2. Open the Markdown report in any Markdown viewer or text editor to see the issues found
+
+3. Use the report with AI assistants like Windsurf or Cursor to help fix the identified issues:
+   - Open your AI-powered IDE
+   - Point it to your project and the report
+   - Ask for help fixing specific issues
+
+### Troubleshooting Docker
+
+If you encounter issues with Docker:
+
+1. **Docker not starting**: Ensure virtualization is enabled in your BIOS/UEFI settings
+2. **Permission errors**: On Linux, you may need to add your user to the docker group
+3. **Volume mounting issues**: Make sure you're using the correct syntax for your operating system
+4. **Docker Desktop not running**: Look for the Docker icon in your system tray and ensure it's running
 
 ## Purpose
 
 This script helps developers, especially those newer to coding ("vibe coders"), ensure their code aligns with common standards before potentially using AI assistants in IDEs (like Windsurf, Cursor) for targeted fixes. It runs tools for Python, JavaScript, TypeScript, Go, and Ruby, and generates a consolidated report.
+
+## Supported Languages and Tools
+
+The scanner includes the following pre-installed tools:
+
+- **JavaScript/TypeScript**: ESLint, RetireJS, TypeScript Compiler
+- **Python**: Flake8, Bandit
+- **Go**: golangci-lint, gosec
+- **Ruby on Rails**: RuboCop, Brakeman (security scanner)
 
 ## Test Applications
 
@@ -59,7 +183,11 @@ docker run -v "$(pwd)/test-apps/ruby-test-app:/code" vibe-code-scanner /code -l 
 
 For more details, see the [Test Applications README](./test-apps/README.md).
 
-## Important: Basic Requirements
+## Advanced Installation: Manual Setup
+
+If you prefer not to use Docker, you can install the tools manually. This is more complex and requires installing multiple dependencies.
+
+### Important: Basic Requirements
 
 **Python 3.x is required to run the scanner itself**, regardless of what language you're scanning. [Download Python from python.org](https://www.python.org/downloads/) if you don't have it installed.
 
@@ -67,198 +195,6 @@ For more details, see the [Test Applications README](./test-apps/README.md).
 - **JavaScript/TypeScript scanning:** Requires Node.js installed ([nodejs.org](https://nodejs.org/))
 - **Go scanning:** Requires Go installed ([go.dev](https://go.dev/doc/install))
 - **Ruby scanning:** Requires Ruby and Rails installed ([ruby-lang.org](https://www.ruby-lang.org/) and [rubyonrails.org](https://rubyonrails.org/))
-
-## Simplified Installation: Using Docker (Recommended)
-
-If you have Docker installed, you can skip all the complex tool installations and run the scanner in a container with all tools pre-installed!
-
-### Docker Container Details
-
-The Docker container includes the following pre-installed tools:
-
-- **Python 3.x** with flake8 and bandit
-- **Node.js 18.x** with ESLint 8.56.0, TypeScript ESLint 6.21.0, and RetireJS 4.3.2
-- **Go 1.22.1** with golangci-lint and gosec
-- **Ruby** with RuboCop and Brakeman (for Rails security scanning)
-
-This ensures all tools are compatible and properly configured, avoiding common installation and version compatibility issues.
-
-### Complete Workflow for Using Docker (Step-by-Step)
-
-#### Step 1: Install Docker Desktop
-
-1. Download Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop/)
-2. Create a free Docker account during installation if you don't have one
-3. Run the installer and follow the prompts
-   - On Windows: Select the option to use WSL 2 if prompted
-   - After installation, you may need to restart your computer
-
-#### Step 2: Start Docker Desktop
-
-1. Launch Docker Desktop from your applications/programs menu
-2. Wait for Docker to fully start (the whale icon in the taskbar will stop animating)
-3. Sign in to Docker Desktop:
-   - Click "Sign in" in the top-right corner
-   - Enter your Docker account credentials
-   - Wait for the login process to complete
-
-#### Step 3: Build the Vibe Code Scanner Docker Image
-
-1. Open a terminal/command prompt
-2. Navigate to the Vibe Code Scanner directory:
-   ```bash
-   cd path/to/vibe-code-scanner
-   ```
-3. Build the Docker image:
-   ```bash
-   docker build -t vibe-code-scanner .
-   ```
-4. Wait for the build to complete (this may take a few minutes the first time)
-
-#### Step 4: Scan Your Project
-
-1. Navigate to your project directory in the terminal:
-   ```bash
-   cd path/to/your/project
-   ```
-
-2. Run the scanner with one of these commands (replace `/path/to/your/project` with your actual project path):
-
-   **Windows (PowerShell):**
-   ```powershell
-   docker run -v "${PWD}:/code" vibe-code-scanner /code
-   ```
-
-   **Windows (Command Prompt):**
-   ```cmd
-   docker run -v "%cd%:/code" vibe-code-scanner /code
-   ```
-
-   **Mac/Linux:**
-   ```bash
-   docker run -v "$(pwd):/code" vibe-code-scanner /code
-   ```
-
-3. For specific language scanning, add the `-l` flag:
-   ```bash
-   docker run -v "$(pwd):/code" vibe-code-scanner /code -l python
-   ```
-   
-   Supported language options: `javascript`, `typescript`, `python`, `go`, `ruby`
-
-#### Step 5: View the Results
-
-1. After the scan completes, the results will be saved in a new `reports` directory in your project:
-   - `reports/vibe_scan_report.md` - Human-readable Markdown report
-   - `reports/vibe_scan_report.json` - Machine-readable JSON data
-
-2. Open the Markdown report in any Markdown viewer or text editor to see the issues found
-
-3. Use the report with AI assistants like Windsurf to help fix the identified issues
-
-#### Step 6: Fix Issues and Rescan
-
-1. Address the issues identified in the report
-2. Run the scanner again to verify your fixes:
-   ```bash
-   docker run -v "$(pwd):/code" vibe-code-scanner /code
-   ```
-3. Repeat until you've resolved all the issues you want to fix
-
-### Troubleshooting Docker
-
-If you encounter issues with Docker:
-
-1. **Docker not starting**: Ensure virtualization is enabled in your BIOS/UEFI settings
-2. **Permission errors**: On Linux, you may need to add your user to the docker group
-3. **Volume mounting issues**: Make sure you're using the correct syntax for your operating system
-4. **Docker Desktop not running**: Look for the Docker icon in your system tray and ensure it's running
-
-### Using Docker (Windows)
-
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you don't have it already
-   - You'll need to create a free Docker account during installation
-   - During installation, make sure to select the option to use WSL 2 if prompted
-   - After installation, you may need to restart your computer
-
-2. **Important:** Make sure you're logged in to Docker Desktop
-   - Open Docker Desktop application
-   - Click "Sign in" in the top-right corner
-   - Enter your Docker account credentials
-   - Wait for the login process to complete
-
-3. Open a command prompt in the scanner directory
-
-4. Run the scanner with:
-
-   cmd line:
-   docker-scan.bat "C:\path\to\your\project" [-l language]
-
-### Using Docker (Mac/Linux)
-
-1. Install Docker if you don't have it already
-   - For Mac: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (requires a free Docker account)
-   - For Linux: Install Docker Engine using your distribution's package manager (no account required)
-
-2. **For Mac users:** Make sure you're logged in to Docker Desktop
-   - Open Docker Desktop application
-   - Sign in with your Docker account credentials
-
-3. Open a terminal in the scanner directory
-
-4. Make the script executable: `chmod +x docker-scan.sh`
-
-5. Run the scanner with:
-
-   cmd line:
-   ./docker-scan.sh /path/to/your/project [-l language]
-
-The Docker approach automatically handles all tool installations and PATH issues for you!
-
-### Troubleshooting Docker Issues
-
-If you encounter authentication errors or other issues when building or running the Docker container:
-
-1.  **Confirm Docker Email:** Ensure you have confirmed the email address associated with your Docker Hub account.
-2.  **Restart Docker Desktop:** Try quitting and restarting Docker Desktop.
-3.  **Check Login Status:** Make sure you are logged into Docker Desktop. You might need to log out and log back in.
-4.  **Restart Your Computer:** Sometimes a simple system restart can resolve unexpected issues.
-5.  **Check Network:** Ensure you have a stable internet connection, as Docker needs to download images.
-
-If problems persist, consider using the manual installation method described below.
-
-## Manual Installation (Alternative)
-
-If you prefer not to use Docker, you can install the required tools manually. This approach requires more setup but doesn't require Docker.
-
-## How to Use the Command Line (for Beginners on Windows)
-
-If you've never used a command line or terminal before, here's a quick guide:
-
-1.  **Open Command Prompt:**
-    *   Click the Windows Start button (usually in the bottom-left corner).
-    *   Type `cmd` or `Command Prompt`.
-    *   Click on the "Command Prompt" application that appears.
-    *   A black window with text will open. This is the command line!
-
-2.  **Running Commands:**
-    *   You type commands into this window and press `Enter` to run them.
-    *   Commands are usually short instructions for the computer.
-    *   For example, to install the Python tools needed for this scanner, you'll type the `pip install ...` command shown below and press `Enter`.
-
-3.  **Changing Directories (Folders):**
-    *   Sometimes you need to tell the command line which folder to work in.
-    *   Use the `cd` command (which stands for "change directory").
-    *   Example: If your project is in `C:\Users\YourName\Documents\MyProject`, you would type:
-        ```
-cd C:\Users\YourName\Documents\MyProject
-```
-    *   **Important:** If the path to your folder has spaces in it (like `C:\Users\Your Name\My Project`), you **must** put double quotes (`"`) around the whole path:
-        ```
-cd "C:\Users\Your Name\My Project"
-```
-    *   (Replace `YourName` and `MyProject` with your actual folder names!)
-    *   You can copy the folder path from Windows File Explorer's address bar.
 
 ## Prerequisites: Required Tools by Language
 
