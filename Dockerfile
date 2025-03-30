@@ -27,6 +27,7 @@ RUN npm install -g retire@4.3.2
 # Set up Node.js tools
 WORKDIR /home/scanner
 COPY .eslintrc.js .
+COPY eslint.config.js .
 ENV PATH="/usr/local/lib/node_modules/.bin:${PATH}"
 
 # Install Go

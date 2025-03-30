@@ -265,9 +265,18 @@ def run_tools(project_path, language):
             logger.info(f"Found {len(js_ts_files)} JavaScript/TypeScript files to scan")
             # Use our new run_eslint function
             results["eslint"] = run_eslint(project_path, js_ts_files)
+            # ESLint returns 1 when it finds linting issues, which is expected and should be treated as success
+            if results["eslint"]["returncode"] not in [0, 1]:
+                logger.error(f"ESLint execution failed (Exit Code: {results['eslint']['returncode']}).")
+                if results["eslint"]["stderr"]: logger.error(f"Stderr:\n{results['eslint']['stderr']}")
+            else:
+                # Mark as success even with exit code 1 (linting issues found)
+                results["eslint"]["success"] = True
+            tools_found = True
         else:
             logger.warning("No JavaScript/TypeScript files found to scan")
             results["eslint"] = {"error": "No JavaScript/TypeScript files found to scan"}
+        
         spinner.stop("ESLint finished.")
 
         print_section("RetireJS")
@@ -287,11 +296,14 @@ def run_tools(project_path, language):
             tools_found = True
             try:
                 # RetireJS: 0 = no vulnerabilities, 13 = vulnerabilities found
-                cmd = ["retire", "--outputformat", "json", "--path", "."]
-                results["retirejs"] = _run_command_and_capture(cmd, cwd=project_path)
+                results["retirejs"] = run_retirejs(project_path)
+                # RetireJS returns 13 when it finds vulnerabilities, which is expected and should be treated as success
                 if results["retirejs"]["returncode"] not in [0, 13]:
                     logger.error(f"RetireJS execution failed (Exit Code: {results['retirejs']['returncode']}).")
                     if results["retirejs"]["stderr"]: logger.error(f"Stderr:\n{results['retirejs']['stderr']}")
+                else:
+                    # Mark as success even with exit code 13 (vulnerabilities found)
+                    results["retirejs"]["success"] = True
             except Exception as e:
                 logger.error("\n" + "#"*80)
                 logger.error(f"ERROR: Failed to run retire: {str(e)}")
@@ -525,34 +537,96 @@ def parse_bandit_json_output(output):
 
 def parse_eslint_json_output(output):
     """Parse ESLint JSON output."""
-    issues = []
-    if not output:
-        return issues
-    
     try:
-        data = json.loads(output)
+        if not output:
+            return []
         
-        for file_result in data:
-            file_path = file_result.get('filePath', 'Unknown')
-            
-            for message in file_result.get('messages', []):
-                severity_map = {1: 'warning', 2: 'error'}
-                severity = severity_map.get(message.get('severity', 2), 'error')
+        # Try to parse as JSON
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, try to extract JSON from the output
+            json_match = re.search(r'(\[.*\])', output)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse ESLint output as JSON")
+                    logger.error(f"Raw output: {output[:500]}...")
+                    return []
+            else:
+                logger.error("Failed to parse ESLint output as JSON")
+                logger.error(f"Raw output: {output[:500]}...")
+                return []
+        
+        issues = []
+        
+        # Handle array format (standard ESLint JSON output)
+        if isinstance(data, list):
+            for file_entry in data:
+                file_path = file_entry.get('filePath', '')
+                messages = file_entry.get('messages', [])
                 
-                issues.append({
-                    'file': file_path,
-                    'line': message.get('line', 0),
-                    'column': message.get('column', 0),
-                    'code': message.get('ruleId', 'Unknown'),
-                    'message': message.get('message', 'Unknown issue'),
-                    'severity': severity,
-                    'tool': 'eslint'
-                })
-    except json.JSONDecodeError as e:
-        logger.error(f"Error parsing ESLint JSON output: {e}")
+                for msg in messages:
+                    line = msg.get('line', 0)
+                    column = msg.get('column', 0)
+                    message = msg.get('message', '')
+                    rule_id = msg.get('ruleId', '')
+                    severity = msg.get('severity', 1)
+                    
+                    # Convert severity from number to string
+                    if severity == 2:
+                        severity_str = "error"
+                    elif severity == 1:
+                        severity_str = "warning"
+                    else:
+                        severity_str = "info"
+                    
+                    issues.append({
+                        'file': file_path,
+                        'line': line,
+                        'column': column,
+                        'message': message,
+                        'severity': severity_str,
+                        'rule': rule_id,
+                        'tool': 'eslint'
+                    })
+        # Handle object format (some ESLint versions or custom formatters)
+        elif isinstance(data, dict) and 'results' in data:
+            for file_entry in data.get('results', []):
+                file_path = file_entry.get('filePath', '')
+                messages = file_entry.get('messages', [])
+                
+                for msg in messages:
+                    line = msg.get('line', 0)
+                    column = msg.get('column', 0)
+                    message = msg.get('message', '')
+                    rule_id = msg.get('ruleId', '')
+                    severity = msg.get('severity', 1)
+                    
+                    # Convert severity from number to string
+                    if severity == 2:
+                        severity_str = "error"
+                    elif severity == 1:
+                        severity_str = "warning"
+                    else:
+                        severity_str = "info"
+                    
+                    issues.append({
+                        'file': file_path,
+                        'line': line,
+                        'column': column,
+                        'message': message,
+                        'severity': severity_str,
+                        'rule': rule_id,
+                        'tool': 'eslint'
+                    })
+        
+        return issues
+    except Exception as e:
+        logger.error(f"Error parsing ESLint output: {e}")
         logger.error(f"Raw output: {output[:500]}...")
-    
-    return issues
+        return []
 
 def parse_golangci_lint_json_output(output):
     """Parse golangci-lint JSON output."""
@@ -681,42 +755,108 @@ def parse_brakeman_json_output(output):
 
 def parse_retirejs_json_output(output):
     """Parse RetireJS JSON output."""
-    issues = []
-    if not output:
-        return issues
-    
     try:
-        data = json.loads(output)
+        if not output:
+            return []
         
-        for result in data:
-            file_path = result.get('file', 'Unknown')
-            
-            for component in result.get('results', []):
-                component_name = component.get('component', 'Unknown')
-                component_version = component.get('version', 'Unknown')
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            # Try to extract JSON from the output
+            json_match = re.search(r'(\{.*\})', output, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                except json.JSONDecodeError:
+                    # Try with more aggressive pattern matching
+                    json_match = re.search(r'(\[\s*\{.*\}\s*\])', output, re.DOTALL)
+                    if json_match:
+                        try:
+                            data = json.loads(json_match.group(1))
+                        except json.JSONDecodeError:
+                            logger.error("Failed to parse RetireJS output as JSON")
+                            logger.error(f"Raw output: {output[:500]}...")
+                            return []
+                    else:
+                        logger.error("Failed to parse RetireJS output as JSON")
+                        logger.error(f"Raw output: {output[:500]}...")
+                        return []
+            else:
+                logger.error("Failed to parse RetireJS output as JSON")
+                logger.error(f"Raw output: {output[:500]}...")
+                return []
+        
+        issues = []
+        
+        # Handle RetireJS 4.x format (array of objects)
+        if isinstance(data, list):
+            for result in data:
+                file = result.get('file', '')
                 
-                for vulnerability in component.get('vulnerabilities', []):
-                    severity = vulnerability.get('severity', 'high')  # Default to high if not specified
-                    if not severity:
-                        severity = 'high'  # RetireJS often doesn't specify severity, default to high
+                for vuln in result.get('vulnerabilities', []):
+                    component = vuln.get('component', '')
+                    version = vuln.get('version', '')
                     
-                    # Create a meaningful message
-                    message = f"{component_name} {component_version} has vulnerability: {vulnerability.get('info', 'Unknown vulnerability')}"
+                    # Handle different vulnerability formats
+                    if 'identifiers' in vuln:
+                        identifiers = vuln.get('identifiers', {})
+                        summary = identifiers.get('summary', '')
+                        if not summary and 'CVE' in identifiers:
+                            summary = f"CVE: {', '.join(identifiers.get('CVE', ['']))}"
+                        if not summary:
+                            summary = f"Vulnerability in {component} {version}"
+                    else:
+                        summary = vuln.get('info', [f"Vulnerability in {component} {version}"])[0]
+                    
+                    severity = vuln.get('severity', 'medium')
                     
                     issues.append({
-                        'file': file_path,
+                        'file': file,
                         'line': 0,  # RetireJS doesn't provide line numbers
-                        'column': '',
-                        'code': vulnerability.get('identifiers', {}).get('CVE', ['Unknown'])[0] if vulnerability.get('identifiers', {}).get('CVE') else 'RetireJS',
-                        'message': message,
-                        'severity': severity,
+                        'column': 0,
+                        'message': f"{component} {version} has known vulnerabilities: {summary}",
+                        'severity': severity if severity else 'medium',
+                        'rule': f"retire:{component}",
                         'tool': 'retirejs'
                     })
-    except json.JSONDecodeError as e:
-        logger.error(f"Error parsing RetireJS JSON output: {e}")
+        
+        # Handle RetireJS 4.x format (object with data property)
+        elif isinstance(data, dict) and 'data' in data:
+            for result in data.get('data', []):
+                file = result.get('file', '')
+                
+                for vuln in result.get('vulnerabilities', []):
+                    component = vuln.get('component', '')
+                    version = vuln.get('version', '')
+                    
+                    # Handle different vulnerability formats
+                    if 'identifiers' in vuln:
+                        identifiers = vuln.get('identifiers', {})
+                        summary = identifiers.get('summary', '')
+                        if not summary and 'CVE' in identifiers:
+                            summary = f"CVE: {', '.join(identifiers.get('CVE', ['']))}"
+                        if not summary:
+                            summary = f"Vulnerability in {component} {version}"
+                    else:
+                        summary = vuln.get('info', [f"Vulnerability in {component} {version}"])[0]
+                    
+                    severity = vuln.get('severity', 'medium')
+                    
+                    issues.append({
+                        'file': file,
+                        'line': 0,  # RetireJS doesn't provide line numbers
+                        'column': 0,
+                        'message': f"{component} {version} has known vulnerabilities: {summary}",
+                        'severity': severity if severity else 'medium',
+                        'rule': f"retire:{component}",
+                        'tool': 'retirejs'
+                    })
+        
+        return issues
+    except Exception as e:
+        logger.error(f"Error parsing RetireJS output: {e}")
         logger.error(f"Raw output: {output[:500]}...")
-    
-    return issues
+        return []
 
 def parse_typescript_check_output(output):
     """Parse TypeScript compiler output."""
@@ -806,18 +946,25 @@ def generate_report(results, output_dir=None):
             })
         elif isinstance(result, dict) and "returncode" in result:
             # Tool was executed
-            if result["returncode"] != 0:
-                # Tool execution failed
+            if (result.get("success") == True) or (
+                tool == "eslint" and result["returncode"] in [0, 1]) or (
+                tool == "retirejs" and result["returncode"] in [0, 13]) or (
+                tool == "golangci-lint" and result["returncode"] in [0, 1]) or (
+                tool == "gosec" and result["returncode"] in [0, 3]) or (
+                tool == "rubocop" and result["returncode"] in [0, 1]) or (
+                tool == "brakeman" and result["returncode"] in [0, 3]) or (
+                result["returncode"] == 0):
+                # Tool executed successfully (including expected non-zero exit codes)
+                ai_friendly_data["tool_summary"]["successful"].append({
+                    "tool": tool
+                })
+            else:
+                # Tool execution failed with unexpected exit code
                 execution_issues.append(f"`{tool}: Execution Failed (Exit: {result['returncode']})`")
                 ai_friendly_data["tool_summary"]["failed"].append({
                     "tool": tool,
                     "exit_code": result["returncode"],
                     "stderr": result.get("stderr", "")[:200]  # Limit stderr length
-                })
-            else:
-                # Tool executed successfully
-                ai_friendly_data["tool_summary"]["successful"].append({
-                    "tool": tool
                 })
     
     # Add execution summary to report if there were issues
@@ -866,7 +1013,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse ESLint results
-    if "eslint" in results and isinstance(results["eslint"], dict) and results["eslint"].get("returncode") == 0:
+    if "eslint" in results and isinstance(results["eslint"], dict) and results["eslint"].get("returncode") in [0, 1]:
         spinner.start("Processing ESLint results...")
         try:
             eslint_issues = parse_eslint_json_output(results["eslint"]["stdout"])
@@ -882,7 +1029,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse RetireJS results
-    if "retirejs" in results and isinstance(results["retirejs"], dict) and results["retirejs"].get("returncode") == 0:
+    if "retirejs" in results and isinstance(results["retirejs"], dict) and results["retirejs"].get("returncode") in [0, 13]:
         spinner.start("Processing RetireJS results...")
         try:
             logger.info("  Parsing retirejs output...")
@@ -916,7 +1063,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse golangci-lint results
-    if "golangci-lint" in results and isinstance(results["golangci-lint"], dict) and results["golangci-lint"].get("returncode") == 0:
+    if "golangci-lint" in results and isinstance(results["golangci-lint"], dict) and results["golangci-lint"].get("returncode") in [0, 1]:
         spinner.start("Processing golangci-lint results...")
         try:
             golangci_issues = parse_golangci_lint_json_output(results["golangci-lint"]["stdout"])
@@ -932,7 +1079,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse gosec results
-    if "gosec" in results and isinstance(results["gosec"], dict) and results["gosec"].get("returncode") == 0:
+    if "gosec" in results and isinstance(results["gosec"], dict) and results["gosec"].get("returncode") in [0, 3]:
         spinner.start("Processing gosec results...")
         try:
             gosec_issues = parse_gosec_json_output(results["gosec"]["stdout"])
@@ -948,7 +1095,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse RuboCop results
-    if "rubocop" in results and isinstance(results["rubocop"], dict) and results["rubocop"].get("returncode") == 0:
+    if "rubocop" in results and isinstance(results["rubocop"], dict) and results["rubocop"].get("returncode") in [0, 1]:
         spinner.start("Processing RuboCop results...")
         try:
             rubocop_issues = parse_rubocop_json_output(results["rubocop"]["stdout"])
@@ -964,7 +1111,7 @@ def generate_report(results, output_dir=None):
             })
     
     # Parse Brakeman results
-    if "brakeman" in results and isinstance(results["brakeman"], dict) and results["brakeman"].get("returncode") == 0:
+    if "brakeman" in results and isinstance(results["brakeman"], dict) and results["brakeman"].get("returncode") in [0, 3]:
         spinner.start("Processing Brakeman results...")
         try:
             brakeman_issues = parse_brakeman_json_output(results["brakeman"]["stdout"])
@@ -986,26 +1133,70 @@ def generate_report(results, output_dir=None):
     # Add issues to AI-friendly data
     ai_friendly_data["issues"] = all_issues
     
-    # Generate issues table if there are issues
+    # Add issues to report if any were found
     if all_issues:
+        # Group issues by file
+        issues_by_file = {}
+        for issue in all_issues:
+            file_path = issue.get('file', 'Unknown')
+            if file_path not in issues_by_file:
+                issues_by_file[file_path] = []
+            issues_by_file[file_path].append(issue)
+        
+        # Add issues section to report
         report_md += "## Issues Found\n\n"
-        report_md += "| File | Line | Severity | Tool | Message | Rule ID |\n"
-        report_md += "|------|------|----------|------|---------|--------|\n"
+        
+        # Count issues by severity
+        severity_counts = {
+            "error": 0,
+            "warning": 0,
+            "info": 0
+        }
         
         for issue in all_issues:
-            file = issue.get("file", "Unknown")
-            line = issue.get("line", "N/A")
-            severity = issue.get("severity", "Unknown")
-            message = issue.get("message", "No message provided")
-            tool = issue.get("tool", "Unknown")
-            rule_id = issue.get("rule_id", "N/A")
+            severity = issue.get('severity', 'info').lower()
+            if severity in severity_counts:
+                severity_counts[severity] += 1
+            else:
+                severity_counts['info'] += 1
+        
+        # Add summary of issues
+        report_md += "### Summary\n\n"
+        report_md += f"- **Total Issues**: {len(all_issues)}\n"
+        report_md += f"- **Errors**: {severity_counts['error']}\n"
+        report_md += f"- **Warnings**: {severity_counts['warning']}\n"
+        report_md += f"- **Info**: {severity_counts['info']}\n\n"
+        
+        # Add issues by file
+        report_md += "### Issues by File\n\n"
+        
+        for file_path, issues in issues_by_file.items():
+            report_md += f"#### {file_path}\n\n"
             
-            # Escape pipe characters in message to avoid breaking the table
-            message = message.replace("|", "\\|")
+            # Sort issues by line number
+            issues.sort(key=lambda x: x.get('line', 0))
             
-            report_md += f"| {file} | {line} | {severity} | {tool} | {message} | {rule_id} |\n"
+            for issue in issues:
+                severity = issue.get('severity', 'info')
+                line = issue.get('line', 0)
+                message = issue.get('message', 'Unknown issue')
+                rule = issue.get('rule', '')
+                tool = issue.get('tool', 'Unknown')
+                
+                severity_icon = "ℹ️"
+                if severity.lower() == 'error' or severity.lower() == 'high':
+                    severity_icon = "❌"
+                elif severity.lower() == 'warning' or severity.lower() == 'medium':
+                    severity_icon = "⚠️"
+                
+                rule_text = f" [{rule}]" if rule else ""
+                
+                report_md += f"- {severity_icon} **Line {line}**: {message}{rule_text} *(via {tool})*\n"
+            
+            report_md += "\n"
     else:
         report_md += "**Congratulations! No issues were found by the successfully executed scanners.**\n\n"
+        
         if execution_issues:
             report_md += "**Note:** Some tools were skipped or failed during execution. See summary above.\n\n"
     
@@ -1196,28 +1387,37 @@ def run_eslint(project_path, files_to_scan):
             logger.warning("No JavaScript or TypeScript files found to scan")
             return {"error": "No JavaScript or TypeScript files found to scan", "stdout": None, "stderr": None, "returncode": 0}
         
-        # Build the ESLint command based on config type
+        # Try multiple ESLint command variants to handle different versions and configurations
+        eslint_commands = []
+        
+        # 1. Try with the detected config
         if is_flat_config:
-            # For ESLint 8.x with flat config
-            eslint_cmd = ["eslint", "--config", config_path, "-f", "json"]
+            # For ESLint with flat config
+            eslint_commands.append(["eslint", "--config", config_path, "-f", "json"] + all_files)
         else:
             # For ESLint with traditional config
-            eslint_cmd = ["eslint", "--config", config_path, "-f", "json"]
+            eslint_commands.append(["eslint", "--config", config_path, "-f", "json"] + all_files)
         
-        # Add files to scan
-        eslint_cmd.extend(all_files)
+        # 2. Try with no config but with our default config
+        eslint_commands.append(["eslint", "--no-eslintrc", "--config", "/home/scanner/.eslintrc.js", "-f", "json"] + all_files)
         
-        logger.info(f"Running ESLint command: {' '.join(eslint_cmd)}")
-        result = _run_command_and_capture(eslint_cmd, cwd=project_path)
+        # 3. Try with no config at all as a last resort
+        eslint_commands.append(["eslint", "--no-eslintrc", "-f", "json"] + all_files)
         
-        # Check if we got any output
-        if result["returncode"] != 0 and not result["stdout"]:
-            # If ESLint fails with no output, try running with --no-eslintrc to bypass config issues
-            logger.warning("ESLint failed with no output. Trying with --no-eslintrc flag.")
-            fallback_cmd = ["eslint", "--no-eslintrc", "-f", "json"]
-            fallback_cmd.extend(all_files)
-            logger.info(f"Running fallback ESLint command: {' '.join(fallback_cmd)}")
-            result = _run_command_and_capture(fallback_cmd, cwd=project_path)
+        # Try each command until one succeeds or we run out of options
+        result = None
+        for cmd in eslint_commands:
+            logger.info(f"Running ESLint command: {' '.join(cmd)}")
+            result = _run_command_and_capture(cmd, cwd=project_path)
+            
+            # If we got valid JSON output or a zero return code, consider it a success
+            if result["returncode"] in [0, 1] or (result["stdout"] and is_valid_json(result["stdout"])):
+                logger.info("ESLint command succeeded")
+                break
+            else:
+                logger.warning(f"ESLint command failed with return code {result['returncode']}")
+                if result["stderr"]:
+                    logger.warning(f"ESLint stderr: {result['stderr'][:500]}...")
         
         # Clean up the temporary tsconfig.json if we created one
         if ts_files_exist and not os.path.exists(os.path.join(project_path, 'tsconfig.json')) and os.path.exists(tsconfig_path):
@@ -1231,6 +1431,73 @@ def run_eslint(project_path, files_to_scan):
     except Exception as e:
         logger.error(f"Error running ESLint: {e}")
         return {"error": f"Error running ESLint: {e}", "stdout": None, "stderr": str(e), "returncode": -1}
+
+def is_valid_json(text):
+    """Check if a string is valid JSON."""
+    try:
+        json.loads(text)
+        return True
+    except json.JSONDecodeError:
+        return False
+
+def run_retirejs(project_path):
+    """Run RetireJS on JavaScript dependencies."""
+    try:
+        # Check if RetireJS is available
+        retirejs_path = shutil.which("retire")
+        if not retirejs_path:
+            logger.error("RetireJS requires 'retire' which was not found in PATH.")
+            logger.error("Please ensure RetireJS is installed and in your PATH.")
+            return {"error": "retire not found in PATH", "stdout": None, "stderr": None, "returncode": -1}
+        
+        # Get RetireJS version to determine command format
+        version_cmd = ["retire", "--version"]
+        try:
+            version_result = subprocess.run(version_cmd, cwd=project_path, capture_output=True, text=True)
+            version_output = version_result.stdout.strip() if version_result.stdout else ""
+            logger.info(f"RetireJS version: {version_output}")
+        except Exception as e:
+            logger.warning(f"Failed to get RetireJS version: {e}")
+            version_output = ""
+        
+        # Try multiple RetireJS command variants to handle different versions
+        retirejs_commands = []
+        
+        # RetireJS 4.x format (preferred)
+        retirejs_commands.append(["retire", "--outputformat", "json", "--outputpath", "-", "--path", "."])
+        
+        # RetireJS 3.x format
+        retirejs_commands.append(["retire", "--outputformat", "json", "--path", "."])
+        
+        # RetireJS 2.x format
+        retirejs_commands.append(["retire", "--js", "--node", "--outputformat", "json"])
+        
+        # Try each command until one succeeds or we run out of options
+        result = None
+        for cmd in retirejs_commands:
+            logger.info(f"Running RetireJS command: {' '.join(cmd)}")
+            result = _run_command_and_capture(cmd, cwd=project_path)
+            
+            # If we got valid JSON output or a zero return code, consider it a success
+            if result["returncode"] in [0, 13] or (result["stdout"] and is_valid_json(result["stdout"])):
+                logger.info("RetireJS command succeeded")
+                break
+            else:
+                logger.warning(f"RetireJS command failed with return code {result['returncode']}")
+                if result["stderr"]:
+                    logger.warning(f"RetireJS stderr: {result['stderr'][:500]}...")
+        
+        # If all commands failed, try one more time with a simpler approach
+        if result["returncode"] not in [0, 13] and not is_valid_json(result["stdout"]):
+            logger.warning("All RetireJS commands failed. Trying with basic options.")
+            cmd = ["retire", "--path", "."]
+            logger.info(f"Running fallback RetireJS command: {' '.join(cmd)}")
+            result = _run_command_and_capture(cmd, cwd=project_path)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error running RetireJS: {e}")
+        return {"error": f"Error running RetireJS: {e}", "stdout": None, "stderr": str(e), "returncode": -1}
 
 def run_typescript_check(project_path):
     """Run TypeScript compiler in noEmit mode to check for errors."""
