@@ -36,6 +36,7 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
 1.  **Command-Line Interface (CLI):**
     *   Uses Python's `argparse` module to accept the target project directory path and optional language specification.
     *   Provides helpful examples and guidance in the help text.
+    *   Supports scanning GitHub repositories directly with the `--github` flag.
 
 2.  **Language Detection Module:**
     *   A function within `scan.py` that analyzes the target directory's contents to determine the primary language.
@@ -43,13 +44,20 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
     *   Supports Python, JavaScript, TypeScript, Go, and Ruby.
     *   Prioritizes user-specified language over auto-detection.
 
-3.  **Prerequisite Checker:**
+3.  **GitHub Repository Cloning:**
+    *   Clones specified GitHub repositories to temporary directories.
+    *   Supports cloning specific branches with the `-b` flag.
+    *   Handles authentication for private repositories using personal access tokens.
+    *   Automatically cleans up temporary directories after scanning.
+    *   Handles errors gracefully with appropriate user feedback.
+
+4.  **Prerequisite Checker:**
     *   Checks if required tools are installed before attempting to run them.
     *   Provides clear, actionable feedback when tools are missing.
     *   Directs users to the README for installation instructions.
     *   Uses `shutil.which()` to verify tool availability in the system PATH.
 
-4.  **Static Analysis Tool Runner:**
+5.  **Static Analysis Tool Runner:**
     *   Uses Python's `subprocess` module to execute language-specific static analysis tools.
     *   Captures stdout, stderr, and return codes from each tool.
     *   Handles tool execution errors gracefully.
@@ -59,14 +67,14 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
         *   **Go:** golangci-lint, gosec
         *   **Ruby:** RuboCop (for code quality), Brakeman (for Rails security scanning)
 
-5.  **Output Parsers:**
+6.  **Output Parsers:**
     *   Dedicated parser functions for each tool's output format.
     *   Handles both plain text and JSON output formats.
     *   Normalizes tool-specific output into a consistent issue format.
     *   Includes robust error handling for parsing failures.
     *   **Note:** While parsers are still included for backward compatibility, the primary approach now focuses on preserving raw tool outputs.
 
-6.  **Report Generator:**
+7.  **Report Generator:**
     *   Saves raw tool outputs to individual files for detailed analysis.
     *   Creates a JSON report with file references for AI assistant integration.
     *   Includes a summary of tool execution status.
@@ -76,19 +84,27 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
 
 ## Data Flow
 
-1.  User executes `python scan.py <project_path> [-l language]`.
-2.  The script validates the project path and detects or uses the specified language.
-3.  For each applicable tool:
+1.  User executes one of the following:
+    *   `python scan.py <project_path> [-l language]` to scan a local directory
+    *   `python scan.py --github <repo_url> [-b branch]` to scan a GitHub repository
+    *   `python scan.py --github <repo_url> --token <token>` to scan a private GitHub repository
+2.  If a GitHub repository is specified:
+    *   The script clones the repository to a temporary directory
+    *   For private repositories, it uses the provided token for authentication
+    *   The temporary directory is used as the project path for scanning
+3.  The script validates the project path and detects or uses the specified language.
+4.  For each applicable tool:
     *   Checks if the tool is installed and provides feedback if not.
     *   Executes the tool and captures its output.
     *   Saves the raw output to a dedicated file (`raw_<tool>_output.txt`).
-4.  A JSON report is generated with:
+5.  A JSON report is generated with:
     *   Tool execution summary
     *   References to raw output files
     *   Resource links
-5.  The reports are written to the `reports` directory in the target project:
+6.  The reports are written to the `reports` directory in the target project:
     *   `vibe_scan_report.json` - JSON report for AI assistants
     *   `raw_<tool>_output.txt` - Raw tool outputs for detailed analysis
+7.  If a GitHub repository was cloned, the temporary directory is cleaned up.
 
 ## Error Handling
 
@@ -108,6 +124,16 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
     *   Catches and reports file I/O errors.
     *   Ensures the user is informed if report generation fails.
 
+## Security Considerations
+
+*   When using GitHub personal access tokens, the token is never logged or displayed in error messages.
+*   Temporary directories are securely created and properly cleaned up after scanning.
+*   The scanner does not store or transmit any GitHub credentials.
+*   Users should follow GitHub's best practices for token management, including:
+    *   Using tokens with minimal required permissions (repo scope is sufficient)
+    *   Regularly rotating tokens
+    *   Not sharing tokens in public repositories or discussions
+
 ## Dependencies
 
 *   **Core:** Python 3.x with standard library modules (argparse, os, subprocess, json, re, datetime, shutil, sys)
@@ -120,8 +146,11 @@ Direct execution of `scan.py` on the host system is not recommended and will lik
 ## Future Considerations
 
 *   Configuration file for customizing tool settings and rule sets.
-*   Support for cloning Git repositories.
-*   Additional output formats (JSON, HTML, IDE-specific).
+*   Support for additional GitHub features like:
+    *   SSH key authentication
+    *   Webhook integration for CI/CD pipelines
+    *   GitHub Actions integration
+*   Additional output formats (HTML, IDE-specific).
 *   Automatic installation of missing tools.
 *   Support for additional languages and frameworks.
 *   Integration with CI/CD pipelines.

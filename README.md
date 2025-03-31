@@ -117,6 +117,39 @@ This guide will walk you through the entire process of getting and using Vibe Co
    
    Supported language options: `javascript`, `typescript`, `python`, `go`, `ruby`
 
+4. **To scan a GitHub repository directly**, use the `--github` flag:
+   ```bash
+   docker run vibe-code-scanner --github https://github.com/username/repository
+   ```
+
+   You can also specify a branch with the `-b` flag:
+   ```bash
+   docker run vibe-code-scanner --github https://github.com/username/repository -b develop
+   ```
+
+   For **private repositories**, use the `--token` flag with your GitHub personal access token:
+   ```bash
+   docker run vibe-code-scanner --github https://github.com/username/repository --token YOUR_GITHUB_TOKEN
+   ```
+
+   **Creating a GitHub personal access token for private repositories:**
+   1. Go to your GitHub account settings (click your profile picture → Settings)
+   2. Select "Developer settings" from the bottom of the left sidebar
+   3. Click on "Personal access tokens" → "Tokens (classic)"
+   4. Click "Generate new token" → "Generate new token (classic)"
+   5. Give your token a name (e.g., "Vibe Code Scanner")
+   6. Set an expiration date (recommended: 30 days)
+   7. Under "Select scopes", check the box for "repo" to grant access to private repositories
+   8. Click "Generate token" at the bottom
+   9. **IMPORTANT**: Copy the token immediately - GitHub will only show it once
+   10. Use the token with the `--token` parameter as shown above
+
+   > **What does this command do?** This command:
+   > 1. Clones the specified GitHub repository
+   > 2. Scans the code in the repository
+   > 3. Generates reports with the results
+   > 4. Automatically cleans up the cloned repository when finished
+
 ### Step 5: View the Results
 
 > **What is this step doing?** After scanning your code, the scanner creates reports with raw tool outputs for detailed analysis.
@@ -422,3 +455,73 @@ If you see errors about missing tools:
 The generated `vibe_scan_report.json` file contains machine-readable data for AI assistants.
 
 You can use this report with AI assistants like those in Windsurf or Cursor to help fix the identified issues.
+
+## Advanced Usage
+
+### Scanning GitHub Repositories
+
+You can scan a GitHub repository directly without cloning it manually:
+
+```bash
+docker run vibe-code-scanner --github https://github.com/username/repository
+```
+
+To scan a specific branch:
+
+```bash
+docker run vibe-code-scanner --github https://github.com/username/repository -b develop
+```
+
+For private repositories, you'll need to provide a GitHub personal access token:
+
+```bash
+docker run vibe-code-scanner --github https://github.com/username/repository --token YOUR_GITHUB_TOKEN
+```
+
+#### How to Create a GitHub Personal Access Token
+
+To access private repositories, you'll need to create a personal access token with the appropriate permissions:
+
+1. **Go to your GitHub account settings**
+   - Click on your profile picture in the top-right corner
+   - Select "Settings" from the dropdown menu
+
+2. **Navigate to Developer settings**
+   - Scroll down to the bottom of the sidebar on the left
+   - Click on "Developer settings"
+
+3. **Access Personal Access Tokens**
+   - In the left sidebar, click on "Personal access tokens"
+   - For newer GitHub accounts, select "Tokens (classic)"
+
+4. **Generate a new token**
+   - Click "Generate new token"
+   - For newer GitHub accounts, select "Generate new token (classic)"
+
+5. **Configure your token**
+   - Give your token a descriptive name (e.g., "Vibe Code Scanner")
+   - Set an expiration date (recommended: 30 days for security)
+   - Under "Select scopes", check the box for "repo" to grant access to private repositories
+   - The "repo" scope gives full access to your private repositories
+
+6. **Create the token**
+   - Scroll to the bottom and click "Generate token"
+
+7. **Copy your token**
+   - **IMPORTANT**: Copy the token immediately and store it securely
+   - GitHub will only show the token once, and you won't be able to see it again
+
+8. **Use the token with Vibe Code Scanner**
+   ```bash
+   docker run vibe-code-scanner --github https://github.com/username/repository --token YOUR_GITHUB_TOKEN
+   ```
+
+> **Security Note**: Treat your personal access token like a password. Never share it publicly or commit it to version control. GitHub tokens can be used to access your repositories and should be kept secure.
+
+The scanner will:
+1. Clone the repository to a temporary directory
+2. Run the scan on the cloned code
+3. Generate reports with the results
+4. Clean up the temporary directory when finished
+
+This is useful for quickly checking open source projects or your own repositories without having to clone them manually.

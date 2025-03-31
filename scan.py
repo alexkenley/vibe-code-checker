@@ -8,6 +8,7 @@ import re
 import logging
 import time
 import threading
+import tempfile
 from datetime import datetime
 
 # Supported languages (lowercase)
@@ -1299,6 +1300,64 @@ def generate_report(results, output_dir=None):
         spinner.stop(f"Error writing report: {e}")
         return False
 
+def clone_github_repo(repo_url, branch=None, token=None):
+    """
+    Clone a GitHub repository to a temporary directory.
+    
+    Args:
+        repo_url (str): The URL of the GitHub repository to clone.
+        branch (str, optional): The branch to clone. Defaults to None (main/master branch).
+        token (str, optional): GitHub personal access token for private repositories.
+        
+    Returns:
+        str: Path to the cloned repository, or None if cloning failed.
+    """
+    try:
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp(prefix="vibe_scanner_")
+        logger.info(f"Created temporary directory: {temp_dir}")
+        print(f"Cloning repository: {repo_url}")
+        
+        # If token is provided, insert it into the URL for authentication
+        clone_url = repo_url
+        if token and "github.com" in repo_url:
+            # Extract the protocol and the rest of the URL
+            protocol, rest = repo_url.split("://", 1)
+            # Insert the token
+            clone_url = f"{protocol}://{token}@{rest}"
+            logger.info("Using provided token for authentication")
+        
+        # Prepare the git clone command
+        cmd = ["git", "clone"]
+        if branch:
+            cmd.extend(["--branch", branch])
+        cmd.extend([clone_url, temp_dir])
+        
+        # Execute the git clone command
+        spinner.start("Cloning repository...")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            error_message = result.stderr
+            # Don't log the token if it's in the error message
+            if token and token in error_message:
+                error_message = error_message.replace(token, "***TOKEN***")
+            logger.error(f"Failed to clone repository: {error_message}")
+            spinner.stop(f"Failed to clone repository: {error_message}")
+            # Clean up the temporary directory
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None
+        
+        spinner.stop("Repository cloned successfully")
+        return temp_dir
+    except Exception as e:
+        logger.error(f"Error cloning repository: {e}")
+        spinner.stop(f"Error cloning repository: {e}")
+        # Clean up the temporary directory if it was created
+        if 'temp_dir' in locals():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
+
 def run_eslint(project_path, files_to_scan):
     """Run ESLint on JavaScript and TypeScript files."""
     try:
@@ -1717,11 +1776,21 @@ Examples:
   %(prog)s /path/to/project -l python    # Scan Python project
   %(prog)s /path/to/project -l typescript # Scan TypeScript project
   %(prog)s /path/to/project -o /path/to/reports # Specify output directory
+  %(prog)s --github https://github.com/username/repo # Scan GitHub repository
+  %(prog)s --github https://github.com/username/repo -b develop # Scan specific branch
+  %(prog)s --github https://github.com/username/repo --token YOUR_TOKEN # Scan private repository
 """
     )
-    parser.add_argument("project_path", help="Path to the project directory to scan")
+    
+    # Create a mutually exclusive group for project_path and github_repo
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("project_path", nargs="?", help="Path to the project directory to scan")
+    source_group.add_argument("--github", metavar="URL", help="GitHub repository URL to clone and scan")
+    
     parser.add_argument("-l", "--language", help="Specify language to scan (python, javascript, typescript, go, ruby)")
     parser.add_argument("-o", "--output", help="Specify output directory for reports (optional, defaults to 'reports' folder in project directory)")
+    parser.add_argument("-b", "--branch", help="Specify branch to clone (only used with --github)")
+    parser.add_argument("--token", help="GitHub personal access token for private repositories (only used with --github)")
     args = parser.parse_args()
 
     # Print a welcome banner
@@ -1737,22 +1806,39 @@ Examples:
             os.makedirs(args.output, exist_ok=True)
             logger.info(f"Using specified output directory: {args.output}")
         
-        main(args.project_path, args.language, args.output)
-
-        # Determine the actual output directory used
-        output_dir = args.output
-        if not output_dir:
-            output_dir = os.path.join(args.project_path, "reports")
+        # Handle GitHub repository cloning if specified
+        temp_dir = None
+        project_path = args.project_path
         
-        # Print a completion banner
-        print("\n" + "=" * 80)
-        print(" Scan Complete ".center(80, "="))
-        print("=" * 80)
-        print(f" JSON report saved to: {os.path.abspath(os.path.join(output_dir, JSON_REPORT_FILENAME))} ".center(80))
-        print(f" Log file saved to: {os.path.abspath(LOG_FILENAME)} ".center(80))
-        print("=" * 80)
-        print(" Use these files with AI assistants like Windsurf for remediation ".center(80))
-        print("=" * 80 + "\n")
+        if args.github:
+            temp_dir = clone_github_repo(args.github, args.branch, args.token)
+            if not temp_dir:
+                logger.error("Failed to clone GitHub repository. Exiting.")
+                sys.exit(1)
+            project_path = temp_dir
+        
+        try:
+            main(project_path, args.language, args.output)
+            
+            # Determine the actual output directory used
+            output_dir = args.output
+            if not output_dir:
+                output_dir = os.path.join(project_path, "reports")
+            
+            # Print a completion banner
+            print("\n" + "=" * 80)
+            print(" Scan Complete ".center(80, "="))
+            print("=" * 80)
+            print(f" JSON report saved to: {os.path.abspath(os.path.join(output_dir, JSON_REPORT_FILENAME))} ".center(80))
+            print(f" Log file saved to: {os.path.abspath(LOG_FILENAME)} ".center(80))
+            print("=" * 80)
+            print(" Use these files with AI assistants like Windsurf for remediation ".center(80))
+            print("=" * 80 + "\n")
+        finally:
+            # Clean up temporary directory if we created one
+            if temp_dir and os.path.exists(temp_dir):
+                logger.info(f"Cleaning up temporary directory: {temp_dir}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
     except KeyboardInterrupt:
         print("\n\nScan interrupted by user. Exiting...")
