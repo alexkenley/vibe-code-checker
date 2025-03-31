@@ -525,3 +525,73 @@ The scanner will:
 4. Clean up the temporary directory when finished
 
 This is useful for quickly checking open source projects or your own repositories without having to clone them manually.
+
+## Contributing to Vibe Code Scanner
+
+We welcome contributions from the community! If you've never contributed to an open source project before, here's a step-by-step guide to help you get started:
+
+### How to Contribute (For First-Time Contributors)
+
+1. **Fork the Repository**
+   - Visit the [Vibe Code Scanner repository](https://github.com/alexkenley/vibe-code-scanner)
+   - Click the "Fork" button in the top-right corner
+   - This creates your own copy of the repository on your GitHub account
+
+2. **Clone Your Fork**
+   - Open your terminal/command prompt
+   - Clone your forked repository to your local machine:
+     ```bash
+     git clone https://github.com/YOUR-USERNAME/vibe-code-scanner.git
+     cd vibe-code-scanner
+     ```
+
+3. **Create a Branch**
+   - Create a new branch for your changes:
+     ```bash
+     git checkout -b feature/your-feature-name
+     ```
+   - Use a descriptive name that reflects your changes (e.g., `feature/add-php-support` or `fix/docker-permissions`)
+
+4. **Make Your Changes**
+   - Implement your improvements or fixes
+   - Test your changes thoroughly
+   - Follow the existing code style and conventions
+
+5. **Commit Your Changes**
+   - Stage and commit your changes:
+     ```bash
+     git add .
+     git commit -m "Add a descriptive commit message"
+     ```
+   - Write clear commit messages that explain what your changes do
+
+6. **Push to Your Fork**
+   - Push your changes to your forked repository:
+     ```bash
+     git push origin feature/your-feature-name
+     ```
+
+7. **Create a Pull Request**
+   - Go to your fork on GitHub
+   - Click the "Compare & pull request" button next to your branch
+   - Fill out the pull request form:
+     - Provide a clear title and description
+     - Explain what your changes do and why they should be included
+     - Reference any related issues
+   - Click "Create pull request"
+
+8. **Review Process**
+   - The project maintainers will review your pull request
+   - They may request changes or ask questions
+   - Be responsive to feedback and make any requested adjustments
+   - Once approved, your changes will be merged into the main project
+
+### Contribution Guidelines
+
+- **Start Small**: If this is your first contribution, consider starting with small improvements like documentation updates or bug fixes
+- **Discuss First**: For major changes, open an issue first to discuss what you would like to change
+- **Test Thoroughly**: Ensure your changes work as expected before submitting a pull request
+- **Follow Conventions**: Match the existing code style and project conventions
+- **Be Patient**: The review process may take some time, especially for larger changes
+
+Thank you for contributing to Vibe Code Scanner and helping make it better for everyone!
