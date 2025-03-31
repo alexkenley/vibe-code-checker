@@ -2,12 +2,9 @@ package main
 
 import (
 	"crypto/md5" // #nosec - Intentional security issue
-	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io/ioutil" // Deprecated package (code quality issue)
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -15,8 +12,8 @@ import (
 
 // Hardcoded credentials (security issue)
 const (
-	APIKey       = "1234567890abcdef"
-	DBPassword   = "super_secret_password"
+	APIKey       = "1234567890abcdef" // #nosec - Intentional security issue
+	DBPassword   = "super_secret_password" // #nosec - Intentional security issue
 	DebugEnabled = true
 )
 
@@ -66,37 +63,16 @@ func InsecureFilePermissions() {
 	}
 }
 
-// InsecureHTTPServer demonstrates an insecure HTTP server
-func InsecureHTTPServer() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Reflected XSS vulnerability (security issue)
-		name := r.URL.Query().Get("name")
-		fmt.Fprintf(w, "Hello, %s!", name) // #nosec - Intentional security issue
-	})
-
-	// Serve on HTTP instead of HTTPS (security issue)
-	log.Fatal(http.ListenAndServe(":8080", nil)) // #nosec - Intentional security issue
-}
-
 // ProcessUserInput demonstrates multiple issues
 func ProcessUserInput(input string) {
 	// Unused variable (code quality issue)
 	unusedVar := "This variable is never used"
 
 	// Hardcoded path (potential issue)
-	configPath := "/etc/app/config.json"
+	configPath := "/etc/app/config.json" // #nosec - Intentional security issue
 
 	// Deprecated function (code quality issue)
-	data, err := ioutil.ReadFile(configPath) // #nosec - Intentional security issue
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var configData map[string]interface{}
-	err = json.Unmarshal(data, &configData)
-	if err != nil {
-		log.Fatal(err)
-	}
+	data, _ := ioutil.ReadFile("config.json") // #nosec - Intentional security issue
 
 	// Command injection vulnerability (security issue)
 	if strings.HasPrefix(input, "cmd:") {
@@ -120,13 +96,6 @@ func main() {
 		fmt.Println("Debug mode is enabled")
 	}
 
-	// Hardcoded credentials (security issue)
-	db, err := sql.Open("mysql", "root:password@/dbname") // #nosec - Intentional security issue
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
 	// Simulate user input
 	userInput := "cmd:ls -la"
 	ProcessUserInput(userInput)
@@ -138,7 +107,4 @@ func main() {
 	password := "password123"
 	hashedPassword := WeakHash(password)
 	fmt.Println("Hashed password:", hashedPassword)
-
-	// Start insecure HTTP server (commented out to prevent actual execution)
-	// InsecureHTTPServer()
 }

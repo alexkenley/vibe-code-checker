@@ -4,6 +4,22 @@
 
 Vibe Code Scanner is designed as a command-line Python script (`scan.py`) intended to be run locally by developers to identify code quality and security issues in their projects.
 
+## Docker-Based Execution Model
+
+**Important:** Vibe Code Scanner is designed to be run within a Docker container, not directly on the host system. This design choice ensures:
+
+1. **Consistent Environment:** All required tools and dependencies are pre-installed in the container.
+2. **No Local Tool Installation:** Users don't need to install language-specific tools on their machines.
+3. **Cross-Platform Compatibility:** Works the same way across Windows, macOS, and Linux.
+4. **Isolation:** Scanning operations run in an isolated environment.
+
+The workflow is:
+1. Build the Docker image using the provided Dockerfile
+2. Run the scanner by mounting the target code directory into the container
+3. View the generated reports in the target directory
+
+Direct execution of `scan.py` on the host system is not recommended and will likely fail due to missing dependencies.
+
 ## Guiding Principle: Simplicity ("Follow the Bouncing Ball")
 
 **Target Audience:** Developers with less coding experience (e.g., designers who code, "vibe coders").
@@ -48,13 +64,15 @@ Vibe Code Scanner is designed as a command-line Python script (`scan.py`) intend
     *   Handles both plain text and JSON output formats.
     *   Normalizes tool-specific output into a consistent issue format.
     *   Includes robust error handling for parsing failures.
+    *   **Note:** While parsers are still included for backward compatibility, the primary approach now focuses on preserving raw tool outputs.
 
 6.  **Report Generator:**
-    *   Aggregates findings from all tools into a unified report.
-    *   Formats results as a Markdown table with file, line, severity, and message details.
+    *   Saves raw tool outputs to individual files for detailed analysis.
+    *   Creates a JSON report with file references for AI assistant integration.
     *   Includes a summary of tool execution status.
     *   Provides links to documentation for fixing identified issues.
     *   Handles edge cases like missing tools or empty results.
+    *   Focuses on preserving complete, unmodified tool outputs for maximum utility.
 
 ## Data Flow
 
@@ -63,13 +81,14 @@ Vibe Code Scanner is designed as a command-line Python script (`scan.py`) intend
 3.  For each applicable tool:
     *   Checks if the tool is installed and provides feedback if not.
     *   Executes the tool and captures its output.
-    *   Parses the output into a standardized issue format.
-4.  All issues are aggregated, sorted by file and line number.
-5.  A comprehensive Markdown report is generated with:
-    *   Tool execution summary (including errors/missing tools)
-    *   Table of all identified issues
-    *   Resources for fixing issues
-6.  The report is written to `vibe_scan_report.md` in the current directory.
+    *   Saves the raw output to a dedicated file (`raw_<tool>_output.txt`).
+4.  A JSON report is generated with:
+    *   Tool execution summary
+    *   References to raw output files
+    *   Resource links
+5.  The reports are written to the `reports` directory in the target project:
+    *   `vibe_scan_report.json` - JSON report for AI assistants
+    *   `raw_<tool>_output.txt` - Raw tool outputs for detailed analysis
 
 ## Error Handling
 

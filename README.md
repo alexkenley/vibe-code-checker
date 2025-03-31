@@ -6,6 +6,8 @@ A simple tool to scan your code for security vulnerabilities and quality issues,
 
 This guide will walk you through the entire process of getting and using Vibe Code Scanner, even if you've never used GitHub or Docker before.
 
+> **IMPORTANT:** Vibe Code Scanner runs inside Docker. You do not need to install any programming languages or tools on your computer - everything runs inside the Docker container!
+
 ### Step 1: Get the Code from GitHub
 
 1. **Download the repository**:
@@ -20,6 +22,8 @@ This guide will walk you through the entire process of getting and using Vibe Co
    ```
 
 ### Step 2: Install Docker Desktop
+
+> **What is Docker?** Docker is a tool that lets us package all the necessary scanning tools into a container that works the same way on any computer. You only need to install Docker once, and then all the scanning tools will work automatically.
 
 1. **Download Docker Desktop**:
    - Go to [docker.com](https://www.docker.com/products/docker-desktop/)
@@ -42,6 +46,8 @@ This guide will walk you through the entire process of getting and using Vibe Co
 
 ### Step 3: Build the Scanner
 
+> **What is this step doing?** This step creates a special container with all the scanning tools pre-installed. You only need to do this once.
+
 1. **Open a terminal/command prompt**:
    - On Windows: Press Win+R, type "cmd" and press Enter
    - On Mac: Open Terminal from Applications > Utilities
@@ -52,6 +58,10 @@ This guide will walk you through the entire process of getting and using Vibe Co
    cd path/to/vibe-code-scanner
    ```
    Replace "path/to/vibe-code-scanner" with the actual path where you extracted the ZIP file
+   
+   For example:
+   - Windows: `cd C:\Users\YourName\Documents\vibe-code-scanner`
+   - Mac/Linux: `cd /Users/YourName/Documents/vibe-code-scanner`
 
 3. **Build the Docker image**:
    ```bash
@@ -62,16 +72,23 @@ This guide will walk you through the entire process of getting and using Vibe Co
 4. **Wait for the build to complete**:
    - This may take a few minutes the first time
    - You'll see a lot of text scrolling as Docker downloads and installs all the necessary tools
+   - The build is complete when you see your command prompt again
 
 ### Step 4: Scan Your Project
+
+> **What is this step doing?** This step runs the scanner on your code. The scanner looks at your code files and identifies potential problems.
 
 1. **Navigate to your project directory** in the terminal:
    ```bash
    cd path/to/your/project
    ```
    Replace "path/to/your/project" with the path to the code you want to scan
+   
+   For example:
+   - Windows: `cd C:\Users\YourName\Documents\my-website`
+   - Mac/Linux: `cd /Users/YourName/Documents/my-website`
 
-2. **Run the scanner** with one of these commands:
+2. **Run the scanner** with one of these commands (choose the one for your operating system):
 
    **Windows (PowerShell):**
    ```powershell
@@ -88,6 +105,11 @@ This guide will walk you through the entire process of getting and using Vibe Co
    docker run -v "$(pwd):/code" vibe-code-scanner /code
    ```
 
+   > **What does this command do?** This command tells Docker to:
+   > 1. Run the vibe-code-scanner container
+   > 2. Make your current directory (your project) available to the scanner
+   > 3. Scan all the code in your project
+
 3. **For specific language scanning**, add the `-l` flag:
    ```bash
    docker run -v "$(pwd):/code" vibe-code-scanner /code -l python
@@ -97,16 +119,34 @@ This guide will walk you through the entire process of getting and using Vibe Co
 
 ### Step 5: View the Results
 
-1. After the scan completes, the results will be saved in a new `reports` directory in your project:
-   - `reports/vibe_scan_report.md` - Human-readable Markdown report
-   - `reports/vibe_scan_report.json` - Machine-readable JSON data
+> **What is this step doing?** After scanning your code, the scanner creates reports with raw tool outputs for detailed analysis.
 
-2. Open the Markdown report in any Markdown viewer or text editor to see the issues found
+1. **Find the reports** - After the scan completes, the results will be saved in a new `reports` directory inside your project folder:
+   - `reports/raw_*_output.txt` - Raw output files from each scanning tool (e.g., `raw_eslint_output.txt`, `raw_flake8_output.txt`)
+   - `reports/vibe_scan_report.json` - Machine-readable JSON data for AI assistants
 
-3. Use the report with AI assistants like Windsurf or Cursor to help fix the identified issues:
+2. **Examine the raw tool outputs**:
+   - Navigate to your project folder in File Explorer/Finder
+   - Open the `reports` folder
+   - Open any of the raw output files (e.g., `raw_eslint_output.txt`) in any text editor
+   
+   These files contain the complete, unmodified output from each scanning tool, including:
+   - All detected issues with file paths and line numbers
+   - Error messages and warnings
+   - Tool execution details
+
+3. **Use the reports with AI assistants** like Windsurf or Cursor to help fix the identified issues:
    - Open your AI-powered IDE
-   - Point it to your project and the report
-   - Ask for help fixing specific issues
+   - Point it to your project and the raw output files
+   - Ask for help analyzing the outputs, for example:
+     - "Help me understand the issues found in raw_eslint_output.txt"
+     - "What security vulnerabilities were detected in raw_gosec_output.txt?"
+     - "How should I fix the linting errors in my JavaScript code?"
+
+4. **For security scanning limitations**:
+   - If any security scanners failed to run properly, check the console output for details
+   - Consider running these tools manually for comprehensive security coverage
+   - The raw output files will indicate which security checks were performed successfully
 
 ### Troubleshooting Docker
 
@@ -116,6 +156,24 @@ If you encounter issues with Docker:
 2. **Permission errors**: On Linux, you may need to add your user to the docker group
 3. **Volume mounting issues**: Make sure you're using the correct syntax for your operating system
 4. **Docker Desktop not running**: Look for the Docker icon in your system tray and ensure it's running
+5. **Command not found**: Make sure you're in the correct directory and Docker is properly installed
+
+### Common Questions
+
+**Q: Do I need to install programming languages on my computer?**  
+A: No! The scanner runs inside Docker, which contains all the necessary tools and languages.
+
+**Q: How do I scan a different project?**  
+A: Navigate to that project's directory in your terminal and run the Docker command again.
+
+**Q: Can I scan just part of my project?**  
+A: Yes, navigate to the specific subdirectory you want to scan before running the Docker command.
+
+**Q: Where are my scan results saved?**  
+A: In a `reports` folder inside the project you scanned.
+
+**Q: How do I read the scan results?**  
+A: Open any of the raw output files in a text editor.
 
 ## Purpose
 
@@ -338,7 +396,7 @@ python scan.py C:\Projects\MyWebApp
 python scan.py "C:\My Projects\MyWebApp"
 ```
 4.  The script will try to detect the language, run the installed tools, and print messages.
-5.  A report file named `vibe_scan_report.md` will be created in the *same folder as the `scan.py` script*.
+5.  A report file named `vibe_scan_report.json` will be created in the *same folder as the `scan.py` script*.
 6.  A log file named `vibe_scan_log.txt` will contain detailed messages about any errors or missing tools.
 
 ### Optional: Specifying Language
@@ -361,13 +419,6 @@ If you see errors about missing tools:
 
 ## Understanding the Report
 
-The generated `vibe_scan_report.md` file contains:
-
-1. A summary of any tools that couldn't be run or encountered errors
-2. A table of all issues found, including:
-   - File path and line number
-   - Severity of the issue
-   - Rule or code that was violated
-   - Description of the problem
+The generated `vibe_scan_report.json` file contains machine-readable data for AI assistants.
 
 You can use this report with AI assistants like those in Windsurf or Cursor to help fix the identified issues.
