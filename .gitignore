@@ -24,3 +24,10 @@ vibe_scan_report.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Generated tool output files
+-
+*/-
+*/*/- 
+*.log
+.eslintcache
